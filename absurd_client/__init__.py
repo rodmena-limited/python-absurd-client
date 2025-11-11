@@ -1035,8 +1035,8 @@ class AbsurdClient:
 
         Args:
             conn: Database connection (transaction-aware)
-            workflow_name: Logical workflow name (must match ^[a-z][a-z0-9_]*$, no '__')
-            workflow_version: Workflow version (must match ^[a-zA-Z0-9._-]+$, no '__')
+            workflow_name: Logical workflow name (must match ``^[a-z][a-z0-9_]*$``, no '__')
+            workflow_version: Workflow version (must match ``^[a-zA-Z0-9._-]+$``, no '__')
             inputs: Workflow input parameters
             absurd_run_id: Optional root Absurd run_id
             created_by: Optional user/system identifier

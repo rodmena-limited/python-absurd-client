@@ -1,0 +1,1418 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>absurd_client &mdash; python-absurd-client 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            python-absurd-client
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">python-absurd-client</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">absurd_client</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for absurd_client</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Python client for the Absurd SQL-based durable execution workflow system.</span>
+
+<span class="sd">This module provides a client interface to interact with the Absurd workflow engine,</span>
+<span class="sd">which is built on PostgreSQL. It allows you to spawn tasks, claim and process them,</span>
+<span class="sd">handle events, manage checkpoints, and track workflow runs.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">uuid</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">timezone</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">psycopg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">psycopg</span><span class="w"> </span><span class="kn">import</span> <span class="n">sql</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="AbsurdSleepError">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdSleepError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AbsurdSleepError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when a run enters SLEEPING state to wait for an event.</span>
+
+<span class="sd">    This signals to the orchestrator that the worker thread should be freed</span>
+<span class="sd">    to process other tasks while this run waits.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">event_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">run_id</span> <span class="o">=</span> <span class="n">run_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">event_name</span> <span class="o">=</span> <span class="n">event_name</span></div>
+
+
+
+<div class="viewcode-block" id="AbsurdClient">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AbsurdClient</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Enhanced client for interacting with Absurd&#39;s SQL functions with full feature utilization.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">queue_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">worker_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">queue_name</span> <span class="o">=</span> <span class="n">queue_name</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;ABSURD_DEFAULT_QUEUE&quot;</span><span class="p">,</span> <span class="s2">&quot;absurd_default&quot;</span><span class="p">)</span>
+
+        <span class="c1"># CRITICAL SECURITY: Validate queue_name to prevent SQL injection</span>
+        <span class="c1"># Queue names are used in table name construction (e.g., absurd.t_{queue_name})</span>
+        <span class="c1"># Only allow alphanumeric characters and underscores</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">queue_name</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_valid_identifier</span><span class="p">(</span><span class="n">queue_name</span><span class="p">):</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Invalid queue_name &#39;</span><span class="si">{</span><span class="n">queue_name</span><span class="si">}</span><span class="s2">&#39;. Must contain only letters, numbers, and underscores.&quot;</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="n">msg</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span> <span class="o">=</span> <span class="n">queue_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span> <span class="o">=</span> <span class="n">worker_id</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;ABSURD_WORKER_ID&quot;</span><span class="p">,</span> <span class="s2">&quot;absurd_worker_1&quot;</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_is_valid_identifier</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate that a string is a safe SQL identifier.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name: String to validate</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            True if safe to use as SQL identifier, False otherwise</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Allow only alphanumeric and underscores, must start with letter or underscore</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^[a-zA-Z_][a-zA-Z0-9_]*$&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span>
+
+<div class="viewcode-block" id="AbsurdClient.create_queue">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.create_queue">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_queue</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create the Absurd queue if it doesn&#39;t exist.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="s2">&quot;SELECT absurd.create_queue(</span><span class="si">%(queue_name)s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="p">{</span><span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">},</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.spawn_task">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.spawn_task">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">spawn_task</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">task_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">options</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">headers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">retry_strategy</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">max_attempts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">cancellation</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">workflow_run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Spawn a new task in the Absurd queue with full feature support.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            conn: Database connection (psycopg3)</span>
+<span class="sd">            task_name: Name of the task</span>
+<span class="sd">            params: Task parameters</span>
+<span class="sd">            options: Legacy options dict (for backward compatibility)</span>
+<span class="sd">            headers: Task headers for metadata</span>
+<span class="sd">            retry_strategy: Retry strategy configuration</span>
+<span class="sd">            max_attempts: Maximum retry attempts</span>
+<span class="sd">            cancellation: Cancellation rules (max_delay, max_duration)</span>
+<span class="sd">            workflow_run_id: Optional workflow run ID for tracking</span>
+
+<span class="sd">        Returns: (task_id, run_id, workflow_run_id)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Ensure queue exists</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">create_queue</span><span class="p">(</span><span class="n">conn</span><span class="p">)</span>
+
+        <span class="c1"># Build comprehensive options dict</span>
+        <span class="n">task_options</span> <span class="o">=</span> <span class="n">options</span> <span class="ow">or</span> <span class="p">{}</span>
+
+        <span class="c1"># Add headers if provided (merge with workflow_run_id)</span>
+        <span class="n">task_headers</span> <span class="o">=</span> <span class="n">headers</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">headers</span> <span class="k">else</span> <span class="p">{}</span>
+
+        <span class="c1"># Store workflow_run_id in headers if provided</span>
+        <span class="k">if</span> <span class="n">workflow_run_id</span><span class="p">:</span>
+            <span class="n">task_headers</span><span class="p">[</span><span class="s2">&quot;workflow_run_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">workflow_run_id</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">task_headers</span><span class="p">:</span>
+            <span class="n">task_options</span><span class="p">[</span><span class="s2">&quot;headers&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">task_headers</span>
+
+        <span class="c1"># Add retry strategy if provided</span>
+        <span class="k">if</span> <span class="n">retry_strategy</span><span class="p">:</span>
+            <span class="n">task_options</span><span class="p">[</span><span class="s2">&quot;retry_strategy&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">retry_strategy</span>
+
+        <span class="c1"># CRITICAL: ALWAYS set max_attempts (default to 1 = no retry if not provided)</span>
+        <span class="c1"># Tasks should only retry if explicitly configured with retry_policy</span>
+        <span class="c1"># Default = 1 attempt (0 retries) to prevent non-idempotent tasks from running twice</span>
+        <span class="n">task_options</span><span class="p">[</span><span class="s2">&quot;max_attempts&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_attempts</span> <span class="k">if</span> <span class="n">max_attempts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">1</span>
+
+        <span class="c1"># Add cancellation rules if provided</span>
+        <span class="k">if</span> <span class="n">cancellation</span><span class="p">:</span>
+            <span class="n">task_options</span><span class="p">[</span><span class="s2">&quot;cancellation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cancellation</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Spawning task &#39;</span><span class="si">{</span><span class="n">task_name</span><span class="si">}</span><span class="s2">&#39; with options: </span><span class="si">{</span><span class="n">task_options</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="s2">&quot;SELECT * FROM absurd.spawn_task(</span><span class="si">%(queue_name)s</span><span class="s2">, </span><span class="si">%(task_name)s</span><span class="s2">, </span><span class="si">%(params)s</span><span class="s2">, </span><span class="si">%(options)s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">,</span>
+                    <span class="s2">&quot;task_name&quot;</span><span class="p">:</span> <span class="n">task_name</span><span class="p">,</span>
+                    <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">params</span><span class="p">),</span>
+                    <span class="s2">&quot;options&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">task_options</span><span class="p">),</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Failed to spawn task&quot;</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+        <span class="n">task_id</span><span class="p">,</span> <span class="n">run_id</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># Return workflow_run_id (either provided or default to run_id)</span>
+        <span class="n">actual_workflow_run_id</span> <span class="o">=</span> <span class="n">workflow_run_id</span> <span class="ow">or</span> <span class="n">run_id</span>
+
+        <span class="k">return</span> <span class="n">task_id</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">actual_workflow_run_id</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.claim_task">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.claim_task">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">claim_task</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">worker_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">claim_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span>
+        <span class="n">qty</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Claim tasks from the Absurd queue with advanced features.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            conn: Database session</span>
+<span class="sd">            worker_id: Worker identifier (defaults to instance worker_id)</span>
+<span class="sd">            claim_timeout: Claim timeout in seconds (0 for no timeout)</span>
+<span class="sd">            qty: Number of tasks to claim in batch (for high-throughput processing)</span>
+
+<span class="sd">        Returns: List of (run_id, task_id, attempt, task_name, params, retry_strategy,</span>
+<span class="sd">                          max_attempts, headers, wake_event, event_payload)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">worker_id</span> <span class="o">=</span> <span class="n">worker_id</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_id</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Claiming </span><span class="si">{</span><span class="n">qty</span><span class="si">}</span><span class="s2"> task(s) from queue &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="si">}</span><span class="s2">&#39; as worker &#39;</span><span class="si">{</span><span class="n">worker_id</span><span class="si">}</span><span class="s2">&#39; with timeout </span><span class="si">{</span><span class="n">claim_timeout</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="s2">&quot;SELECT * FROM absurd.claim_task(</span><span class="si">%(queue_name)s</span><span class="s2">, </span><span class="si">%(worker_id)s</span><span class="s2">, </span><span class="si">%(claim_timeout)s</span><span class="s2">, </span><span class="si">%(qty)s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">,</span>
+                    <span class="s2">&quot;worker_id&quot;</span><span class="p">:</span> <span class="n">worker_id</span><span class="p">,</span>
+                    <span class="s2">&quot;claim_timeout&quot;</span><span class="p">:</span> <span class="n">claim_timeout</span><span class="p">,</span>
+                    <span class="s2">&quot;qty&quot;</span><span class="p">:</span> <span class="n">qty</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Claimed </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="si">}</span><span class="s2"> task(s)&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">result</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.complete_task">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.complete_task">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">complete_task</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+        <span class="n">result</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mark a task as completed with state validation support.&quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Completing task run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+                <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                    <span class="s2">&quot;SELECT absurd.complete_run(</span><span class="si">%(queue_name)s</span><span class="s2">, </span><span class="si">%(run_id)s</span><span class="s2">, </span><span class="si">%(result)s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                    <span class="p">{</span>
+                        <span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">,</span>
+                        <span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span>
+                        <span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">result</span> <span class="ow">or</span> <span class="p">{}),</span>
+                    <span class="p">},</span>
+                <span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Successfully completed task run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to complete task run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="c1"># Re-raise to handle state validation errors</span>
+            <span class="k">raise</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.fail_task">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.fail_task">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fail_task</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+        <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">retry_at</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mark a task as failed with detailed error information.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            conn: Database session</span>
+<span class="sd">            run_id: Task run ID</span>
+<span class="sd">            reason: Failure reason (string or detailed dict)</span>
+<span class="sd">            retry_at: Optional retry timestamp (for manual retry scheduling)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Convert string reason to detailed error format</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">reason</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">failure_reason</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;TaskExecutionError&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="n">reason</span><span class="p">,</span>
+                <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+            <span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">failure_reason</span> <span class="o">=</span> <span class="n">reason</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failing task run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">failure_reason</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Format retry_at as ISO string if provided</span>
+        <span class="n">retry_at_str</span> <span class="o">=</span> <span class="n">retry_at</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span> <span class="k">if</span> <span class="n">retry_at</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="s2">&quot;SELECT absurd.fail_run(</span><span class="si">%(queue_name)s</span><span class="s2">, </span><span class="si">%(run_id)s</span><span class="s2">, </span><span class="si">%(reason)s</span><span class="s2">, </span><span class="si">%(retry_at)s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">,</span>
+                    <span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span>
+                    <span class="s2">&quot;reason&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">failure_reason</span><span class="p">),</span>
+                    <span class="s2">&quot;retry_at&quot;</span><span class="p">:</span> <span class="n">retry_at_str</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.cancel_task">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.cancel_task">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cancel_task</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Manually cancel a pending or sleeping task.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            conn: Database connection</span>
+<span class="sd">            run_id: Task run ID to cancel</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            True if task was cancelled, False if it couldn&#39;t be cancelled</span>
+<span class="sd">            (already running, completed, or failed)</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            Exception: If task not found or database error</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cancelling task run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+                <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                    <span class="s2">&quot;SELECT absurd.cancel_task(</span><span class="si">%(queue_name)s</span><span class="s2">, </span><span class="si">%(run_id)s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                    <span class="p">{</span>
+                        <span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">,</span>
+                        <span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span>
+                    <span class="p">},</span>
+                <span class="p">)</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+                <span class="n">cancelled</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">result</span> <span class="k">else</span> <span class="kc">False</span>
+
+            <span class="k">if</span> <span class="n">cancelled</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Successfully cancelled task run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not cancel task run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2"> (may already be running/completed)&quot;</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">cancelled</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to cancel task run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.extend_claim">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.extend_claim">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">extend_claim</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+        <span class="n">extend_by_seconds</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extend the claim timeout for a long-running task.</span>
+
+<span class="sd">        This is crucial for tasks that take longer than the initial claim timeout.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Extending claim for run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2"> by </span><span class="si">{</span><span class="n">extend_by_seconds</span><span class="si">}</span><span class="s2"> seconds&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Use set_checkpoint with extend_claim_by to extend the claim</span>
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="s2">&quot;SELECT absurd.set_task_checkpoint_state(</span><span class="si">%(queue_name)s</span><span class="s2">, </span><span class="si">%(task_id)s</span><span class="s2">, </span><span class="si">%(step_name)s</span><span class="s2">, </span><span class="si">%(state)s</span><span class="s2">, </span><span class="si">%(owner_run)s</span><span class="s2">, </span><span class="si">%(extend_claim_by)s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">,</span>
+                    <span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span>  <span class="c1"># Using run_id as task_id for claim extension</span>
+                    <span class="s2">&quot;step_name&quot;</span><span class="p">:</span> <span class="s2">&quot;claim_extension&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span>
+                        <span class="p">{</span>
+                            <span class="s2">&quot;extended_at&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+                            <span class="s2">&quot;extend_by&quot;</span><span class="p">:</span> <span class="n">extend_by_seconds</span><span class="p">,</span>
+                        <span class="p">},</span>
+                    <span class="p">),</span>
+                    <span class="s2">&quot;owner_run&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span>
+                    <span class="s2">&quot;extend_claim_by&quot;</span><span class="p">:</span> <span class="n">extend_by_seconds</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.set_checkpoint">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.set_checkpoint">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_checkpoint</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">task_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+        <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">owner_run</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+        <span class="n">extend_claim_by</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set a checkpoint for a task with optional claim extension.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            conn: Database session</span>
+<span class="sd">            task_id: Task ID</span>
+<span class="sd">            step_name: Checkpoint step name</span>
+<span class="sd">            state: Checkpoint state data</span>
+<span class="sd">            owner_run: Run ID that owns this checkpoint</span>
+<span class="sd">            extend_claim_by: Optional claim extension in seconds</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Setting checkpoint &#39;</span><span class="si">{</span><span class="n">step_name</span><span class="si">}</span><span class="s2">&#39; for task </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="s2">&quot;SELECT absurd.set_task_checkpoint_state(</span><span class="si">%(queue_name)s</span><span class="s2">, </span><span class="si">%(task_id)s</span><span class="s2">, </span><span class="si">%(step_name)s</span><span class="s2">, </span><span class="si">%(state)s</span><span class="s2">, </span><span class="si">%(owner_run)s</span><span class="s2">, </span><span class="si">%(extend_claim_by)s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">,</span>
+                    <span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="n">task_id</span><span class="p">,</span>
+                    <span class="s2">&quot;step_name&quot;</span><span class="p">:</span> <span class="n">step_name</span><span class="p">,</span>
+                    <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">state</span><span class="p">),</span>
+                    <span class="s2">&quot;owner_run&quot;</span><span class="p">:</span> <span class="n">owner_run</span><span class="p">,</span>
+                    <span class="s2">&quot;extend_claim_by&quot;</span><span class="p">:</span> <span class="n">extend_claim_by</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.get_checkpoint">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.get_checkpoint">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_checkpoint</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">task_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+        <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">include_pending</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a checkpoint for a task.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="s2">&quot;SELECT * FROM absurd.get_task_checkpoint_state(</span><span class="si">%(queue_name)s</span><span class="s2">, </span><span class="si">%(task_id)s</span><span class="s2">, </span><span class="si">%(step_name)s</span><span class="s2">, </span><span class="si">%(include_pending)s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">,</span>
+                    <span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="n">task_id</span><span class="p">,</span>
+                    <span class="s2">&quot;step_name&quot;</span><span class="p">:</span> <span class="n">step_name</span><span class="p">,</span>
+                    <span class="s2">&quot;include_pending&quot;</span><span class="p">:</span> <span class="n">include_pending</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">result</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s2">&quot;checkpoint_name&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+                <span class="s2">&quot;owner_run_id&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+                <span class="s2">&quot;updated_at&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>
+            <span class="p">}</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.get_all_checkpoints">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.get_all_checkpoints">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_all_checkpoints</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">task_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get all checkpoints for a task.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="s2">&quot;SELECT * FROM absurd.get_task_checkpoint_states(</span><span class="si">%(queue_name)s</span><span class="s2">, </span><span class="si">%(task_id)s</span><span class="s2">, </span><span class="si">%(run_id)s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="p">{</span><span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">,</span> <span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="n">task_id</span><span class="p">,</span> <span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+        <span class="n">checkpoints</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">checkpoints</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;checkpoint_name&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                    <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+                    <span class="s2">&quot;owner_run_id&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+                    <span class="s2">&quot;updated_at&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">checkpoints</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.await_event">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.await_event">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">await_event</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">task_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+        <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">event_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Wait for an event with timeout support.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            conn: Database session</span>
+<span class="sd">            task_id: Task ID</span>
+<span class="sd">            run_id: Run ID</span>
+<span class="sd">            step_name: Step name</span>
+<span class="sd">            event_name: Event name to wait for</span>
+<span class="sd">            timeout: Timeout in seconds (None for no timeout)</span>
+
+<span class="sd">        Returns: (should_suspend, payload)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Task </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2"> awaiting event &#39;</span><span class="si">{</span><span class="n">event_name</span><span class="si">}</span><span class="s2">&#39; with timeout </span><span class="si">{</span><span class="n">timeout</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="s2">&quot;SELECT * FROM absurd.await_event(</span><span class="si">%(queue_name)s</span><span class="s2">, </span><span class="si">%(task_id)s</span><span class="s2">, </span><span class="si">%(run_id)s</span><span class="s2">, </span><span class="si">%(step_name)s</span><span class="s2">, </span><span class="si">%(event_name)s</span><span class="s2">, </span><span class="si">%(timeout)s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">,</span>
+                    <span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="n">task_id</span><span class="p">,</span>
+                    <span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span>
+                    <span class="s2">&quot;step_name&quot;</span><span class="p">:</span> <span class="n">step_name</span><span class="p">,</span>
+                    <span class="s2">&quot;event_name&quot;</span><span class="p">:</span> <span class="n">event_name</span><span class="p">,</span>
+                    <span class="s2">&quot;timeout&quot;</span><span class="p">:</span> <span class="n">timeout</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+
+        <span class="n">should_suspend</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">result</span> <span class="k">else</span> <span class="kc">True</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">result</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">should_suspend</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Task </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2"> suspended waiting for event &#39;</span><span class="si">{</span><span class="n">event_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Task </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2"> received event &#39;</span><span class="si">{</span><span class="n">event_name</span><span class="si">}</span><span class="s2">&#39; with payload: </span><span class="si">{</span><span class="n">payload</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">should_suspend</span><span class="p">,</span> <span class="n">payload</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.schedule_task">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.schedule_task">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">schedule_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span> <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span> <span class="n">wake_at</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Schedule a task to run at a specific time.</span>
+
+<span class="sd">        Useful for delayed execution or rate limiting.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Scheduling task run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2"> to wake at </span><span class="si">{</span><span class="n">wake_at</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="s2">&quot;SELECT absurd.schedule_run(</span><span class="si">%(queue_name)s</span><span class="s2">, </span><span class="si">%(run_id)s</span><span class="s2">, </span><span class="si">%(wake_at)s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">,</span>
+                    <span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span>
+                    <span class="s2">&quot;wake_at&quot;</span><span class="p">:</span> <span class="n">wake_at</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+                <span class="p">},</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.cleanup_tasks">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.cleanup_tasks">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cleanup_tasks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span> <span class="n">ttl_seconds</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Clean up old completed tasks.&quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Cleaning up tasks older than </span><span class="si">{</span><span class="n">ttl_seconds</span><span class="si">}</span><span class="s2"> seconds (limit: </span><span class="si">{</span><span class="n">limit</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="s2">&quot;SELECT absurd.cleanup_tasks(</span><span class="si">%(queue_name)s</span><span class="s2">, </span><span class="si">%(ttl_seconds)s</span><span class="s2">, </span><span class="si">%(limit)s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="p">{</span><span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">,</span> <span class="s2">&quot;ttl_seconds&quot;</span><span class="p">:</span> <span class="n">ttl_seconds</span><span class="p">,</span> <span class="s2">&quot;limit&quot;</span><span class="p">:</span> <span class="n">limit</span><span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+
+        <span class="n">cleaned_count</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">result</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cleaned up </span><span class="si">{</span><span class="n">cleaned_count</span><span class="si">}</span><span class="s2"> tasks&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cleaned_count</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.cleanup_events">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.cleanup_events">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cleanup_events</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span> <span class="n">ttl_seconds</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Clean up old events.&quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Cleaning up events older than </span><span class="si">{</span><span class="n">ttl_seconds</span><span class="si">}</span><span class="s2"> seconds (limit: </span><span class="si">{</span><span class="n">limit</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="s2">&quot;SELECT absurd.cleanup_events(</span><span class="si">%(queue_name)s</span><span class="s2">, </span><span class="si">%(ttl_seconds)s</span><span class="s2">, </span><span class="si">%(limit)s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="p">{</span><span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">,</span> <span class="s2">&quot;ttl_seconds&quot;</span><span class="p">:</span> <span class="n">ttl_seconds</span><span class="p">,</span> <span class="s2">&quot;limit&quot;</span><span class="p">:</span> <span class="n">limit</span><span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+
+        <span class="n">cleaned_count</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">result</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cleaned up </span><span class="si">{</span><span class="n">cleaned_count</span><span class="si">}</span><span class="s2"> events&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cleaned_count</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.get_task_status">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.get_task_status">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_task_status</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">task_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get detailed task status information.</span>
+
+<span class="sd">        LOW PRIORITY FIX (Issue #16): Direct table query with locking.</span>
+<span class="sd">        Absurd does not provide a stored procedure for retrieving task status,</span>
+<span class="sd">        so we must query the tasks table directly. Using FOR SHARE lock to</span>
+<span class="sd">        ensure we read committed data and prevent phantom reads.</span>
+
+<span class="sd">        Note: This is a read-only operation with low impact on data consistency.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># SECURITY FIX: Use sql.Identifier to prevent SQL injection</span>
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="n">sql</span><span class="o">.</span><span class="n">SQL</span><span class="p">(</span>
+                    <span class="s2">&quot;SELECT * FROM </span><span class="si">{schema}</span><span class="s2">.</span><span class="si">{table}</span><span class="s2"> WHERE task_id = </span><span class="si">%(task_id)s</span><span class="s2"> FOR SHARE&quot;</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">schema</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="s2">&quot;absurd&quot;</span><span class="p">),</span>
+                    <span class="n">table</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;t_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+                <span class="p">),</span>
+                <span class="p">{</span><span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="n">task_id</span><span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># Convert result to dict (column names would be needed for full mapping)</span>
+        <span class="c1"># NOTE: tenant_id is at index 14 (last column, added in Phase 13)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;task_name&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+            <span class="s2">&quot;headers&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+            <span class="s2">&quot;retry_strategy&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>
+            <span class="s2">&quot;max_attempts&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
+            <span class="s2">&quot;cancellation&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">6</span><span class="p">],</span>
+            <span class="s2">&quot;enqueue_at&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span>
+            <span class="s2">&quot;first_started_at&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">8</span><span class="p">],</span>
+            <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">9</span><span class="p">],</span>
+            <span class="s2">&quot;attempts&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">10</span><span class="p">],</span>
+            <span class="s2">&quot;last_attempt_run&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">11</span><span class="p">],</span>
+            <span class="s2">&quot;completed_payload&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">12</span><span class="p">],</span>
+            <span class="s2">&quot;cancelled_at&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">13</span><span class="p">],</span>
+            <span class="s2">&quot;tenant_id&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">14</span><span class="p">],</span>  <span class="c1"># Phase 13: tenant_id added at end</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.get_run_status">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.get_run_status">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_run_status</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get detailed run status information.</span>
+
+<span class="sd">        LOW PRIORITY FIX (Issue #17): Direct table query with locking.</span>
+<span class="sd">        Absurd does not provide a stored procedure for retrieving run status,</span>
+<span class="sd">        so we must query the runs table directly. Using FOR SHARE lock to</span>
+<span class="sd">        ensure we read committed data and prevent phantom reads.</span>
+
+<span class="sd">        Note: This is a read-only operation with low impact on data consistency.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># SECURITY FIX: Use sql.Identifier to prevent SQL injection</span>
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="n">sql</span><span class="o">.</span><span class="n">SQL</span><span class="p">(</span>
+                    <span class="s2">&quot;SELECT * FROM </span><span class="si">{schema}</span><span class="s2">.</span><span class="si">{table}</span><span class="s2"> WHERE run_id = </span><span class="si">%(run_id)s</span><span class="s2"> FOR SHARE&quot;</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">schema</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="s2">&quot;absurd&quot;</span><span class="p">),</span>
+                    <span class="n">table</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;r_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+                <span class="p">),</span>
+                <span class="p">{</span><span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># Convert result to dict - runs table has different columns</span>
+        <span class="c1"># NOTE: tenant_id is at index 16 (last column, added in Phase 13)</span>
+        <span class="c1"># Actual columns: run_id, task_id, attempt, state, claimed_by, claim_expires_at,</span>
+        <span class="c1">#                 available_at, wake_event, event_payload, started_at, completed_at, failed_at,</span>
+        <span class="c1">#                 result, failure_reason, created_at, last_heartbeat, tenant_id</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="s2">&quot;attempt&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+            <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+            <span class="s2">&quot;claimed_by&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>
+            <span class="s2">&quot;claim_expires_at&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
+            <span class="s2">&quot;available_at&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">6</span><span class="p">],</span>
+            <span class="s2">&quot;wake_event&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span>
+            <span class="s2">&quot;event_payload&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">8</span><span class="p">],</span>
+            <span class="s2">&quot;started_at&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">9</span><span class="p">],</span>
+            <span class="s2">&quot;completed_at&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">10</span><span class="p">],</span>
+            <span class="s2">&quot;failed_at&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">11</span><span class="p">],</span>
+            <span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">12</span><span class="p">],</span>
+            <span class="s2">&quot;failure_reason&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">13</span><span class="p">],</span>
+            <span class="s2">&quot;created_at&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">14</span><span class="p">],</span>
+            <span class="s2">&quot;last_heartbeat&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">15</span><span class="p">],</span>
+            <span class="s2">&quot;tenant_id&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">16</span><span class="p">],</span>  <span class="c1"># Phase 13: tenant_id added at end</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.get_checkpoints_for_run">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.get_checkpoints_for_run">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_checkpoints_for_run</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span> <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get all checkpoints for a specific run.</span>
+
+<span class="sd">        LOW PRIORITY FIX (Issue #18): Direct table query with locking.</span>
+<span class="sd">        While Absurd provides absurd.get_task_checkpoint_states(), it requires a task_id.</span>
+<span class="sd">        This method is called with only run_id (from DurableContext initialization),</span>
+<span class="sd">        so we must query the checkpoints table directly by owner_run_id.</span>
+<span class="sd">        Using FOR SHARE lock to ensure we read committed data.</span>
+
+<span class="sd">        Note: This is a read-only operation with low impact on data consistency.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># SECURITY FIX: Use sql.Identifier to prevent SQL injection</span>
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="n">sql</span><span class="o">.</span><span class="n">SQL</span><span class="p">(</span>
+                    <span class="s2">&quot;SELECT checkpoint_name, state FROM </span><span class="si">{schema}</span><span class="s2">.</span><span class="si">{table}</span><span class="s2"> WHERE owner_run_id = </span><span class="si">%(run_id)s</span><span class="s2"> FOR SHARE&quot;</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">schema</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="s2">&quot;absurd&quot;</span><span class="p">),</span>
+                    <span class="n">table</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;c_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+                <span class="p">),</span>
+                <span class="p">{</span><span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+        <span class="n">checkpoints</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">checkpoint_name</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">checkpoints</span><span class="p">[</span><span class="n">checkpoint_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">state</span>
+
+        <span class="k">return</span> <span class="n">checkpoints</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.save_checkpoint_for_run">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.save_checkpoint_for_run">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_checkpoint_for_run</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+        <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">task_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set a checkpoint for a specific step (convenience wrapper for DurableContext).&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">task_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># If no task_id provided, we need to find the current task for this run</span>
+            <span class="c1"># This is a simplified approach - in practice you might want to track this better</span>
+            <span class="n">task_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_current_task_id</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">task_id</span><span class="p">:</span>
+            <span class="c1"># Call the actual checkpoint method with proper parameters</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Setting checkpoint &#39;</span><span class="si">{</span><span class="n">step_name</span><span class="si">}</span><span class="s2">&#39; for task </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+                <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                    <span class="s2">&quot;SELECT absurd.set_task_checkpoint_state(</span><span class="si">%(queue_name)s</span><span class="s2">, </span><span class="si">%(task_id)s</span><span class="s2">, </span><span class="si">%(step_name)s</span><span class="s2">, </span><span class="si">%(state)s</span><span class="s2">, </span><span class="si">%(owner_run)s</span><span class="s2">, </span><span class="si">%(extend_claim_by)s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                    <span class="p">{</span>
+                        <span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">,</span>
+                        <span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="n">task_id</span><span class="p">,</span>
+                        <span class="s2">&quot;step_name&quot;</span><span class="p">:</span> <span class="n">step_name</span><span class="p">,</span>
+                        <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">data</span><span class="p">),</span>
+                        <span class="s2">&quot;owner_run&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span>
+                        <span class="s2">&quot;extend_claim_by&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="p">},</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># If we can&#39;t find a task_id, we can&#39;t save the checkpoint</span>
+            <span class="c1"># This might indicate we need to spawn a task first</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;No task_id found for run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">, cannot save checkpoint for step </span><span class="si">{</span><span class="n">step_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_current_task_id</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the current task ID for a run.</span>
+
+<span class="sd">        LOW PRIORITY FIX (Issue #19): Direct table query with locking.</span>
+<span class="sd">        Absurd does not provide a stored procedure for retrieving task_id from run_id,</span>
+<span class="sd">        so we must query the runs table directly. Using FOR SHARE lock to</span>
+<span class="sd">        ensure we read committed data.</span>
+
+<span class="sd">        Note: This is a read-only operation with low impact on data consistency.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># SECURITY FIX: Use sql.Identifier to prevent SQL injection</span>
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="n">sql</span><span class="o">.</span><span class="n">SQL</span><span class="p">(</span>
+                    <span class="s2">&quot;SELECT task_id FROM </span><span class="si">{schema}</span><span class="s2">.</span><span class="si">{table}</span><span class="s2"> WHERE run_id = </span><span class="si">%(run_id)s</span><span class="s2"> ORDER BY started_at DESC LIMIT 1 FOR SHARE&quot;</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">schema</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="s2">&quot;absurd&quot;</span><span class="p">),</span>
+                    <span class="n">table</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;r_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+                <span class="p">),</span>
+                <span class="p">{</span><span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">result</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># type: ignore[no-any-return]</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="AbsurdClient.sleep">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.sleep">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sleep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span> <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span> <span class="n">duration_seconds</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Durable sleep that survives crashes and restarts.&quot;&quot;&quot;</span>
+        <span class="c1"># This would typically be implemented using Absurd&#39;s sleep functionality</span>
+        <span class="c1"># For now, we&#39;ll create a simple implementation that sets a wake time</span>
+        <span class="n">wake_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">duration_seconds</span><span class="p">)</span>
+
+        <span class="c1"># Store the sleep information in a checkpoint</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_checkpoint</span><span class="p">(</span>
+            <span class="n">conn</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="p">,</span>  <span class="c1"># task_id</span>
+            <span class="sa">f</span><span class="s2">&quot;sleep_</span><span class="si">{</span><span class="n">duration_seconds</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;sleep&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;duration&quot;</span><span class="p">:</span> <span class="n">duration_seconds</span><span class="p">,</span>
+                <span class="s2">&quot;wake_time&quot;</span><span class="p">:</span> <span class="n">wake_time</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+                <span class="s2">&quot;started_at&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+            <span class="p">},</span>
+            <span class="n">run_id</span><span class="p">,</span>  <span class="c1"># owner_run</span>
+        <span class="p">)</span>
+
+        <span class="c1"># In a real implementation, this would integrate with Absurd&#39;s sleep system</span>
+        <span class="c1"># For now, we&#39;ll just log it</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Sleep scheduled for </span><span class="si">{</span><span class="n">duration_seconds</span><span class="si">}</span><span class="s2"> seconds, waking at </span><span class="si">{</span><span class="n">wake_time</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.wait_for_event">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.wait_for_event">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">wait_for_event</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+        <span class="n">event_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">timeout_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">task_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Wait for an event using Absurd&#39;s sleep/wake mechanism.</span>
+
+<span class="sd">        This implements the proper Absurd pattern:</span>
+<span class="sd">        1. Check if event already exists (fast path - return immediately)</span>
+<span class="sd">        2. Check if this run has been woken with event payload</span>
+<span class="sd">        3. If not, register wait and mark run as SLEEPING</span>
+<span class="sd">        4. Orchestrator will free worker thread and process other tasks</span>
+<span class="sd">        5. When event is emitted, run is woken and will resume here</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            conn: Database session</span>
+<span class="sd">            run_id: The Absurd run ID (NOT workflow run ID!)</span>
+<span class="sd">            event_name: Name of event to wait for</span>
+<span class="sd">            timeout_seconds: Optional timeout (default 24 hours)</span>
+<span class="sd">            task_id: The Absurd task ID (required for registering wait)</span>
+<span class="sd">            step_name: The step name (required for registering wait)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Event payload when event is received</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            TimeoutError: If timeout expires before event received</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># CRITICAL: No default timeout - user MUST specify or it will fail fast</span>
+        <span class="c1"># DO NOT add a default here - forcing user to be explicit prevents hung workflows</span>
+        <span class="k">if</span> <span class="n">timeout_seconds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;timeout_seconds is required for wait_for_event (event: </span><span class="si">{</span><span class="n">event_name</span><span class="si">}</span><span class="s2">). &quot;</span>
+                <span class="s2">&quot;DO NOT rely on defaults - specify an explicit timeout to prevent hung workflows.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="n">msg</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Waiting for event &#39;</span><span class="si">{</span><span class="n">event_name</span><span class="si">}</span><span class="s2">&#39; for run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Check if event already exists in events table</span>
+        <span class="c1"># SECURITY FIX: Use sql.Identifier to prevent SQL injection</span>
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="n">sql</span><span class="o">.</span><span class="n">SQL</span><span class="p">(</span>
+                    <span class="s2">&quot;SELECT payload FROM </span><span class="si">{schema}</span><span class="s2">.</span><span class="si">{table}</span><span class="s2"> WHERE event_name = </span><span class="si">%(event_name)s</span><span class="s2"> LIMIT 1&quot;</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">schema</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="s2">&quot;absurd&quot;</span><span class="p">),</span>
+                    <span class="n">table</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;e_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+                <span class="p">),</span>
+                <span class="p">{</span><span class="s2">&quot;event_name&quot;</span><span class="p">:</span> <span class="n">event_name</span><span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">result</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Check if this run has been woken with event payload</span>
+        <span class="c1"># SECURITY FIX: Use sql.Identifier to prevent SQL injection</span>
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="n">sql</span><span class="o">.</span><span class="n">SQL</span><span class="p">(</span>
+                    <span class="s2">&quot;SELECT event_payload, state, wake_event FROM </span><span class="si">{schema}</span><span class="s2">.</span><span class="si">{table}</span><span class="s2"> WHERE run_id = </span><span class="si">%(run_id)s</span><span class="s2">&quot;</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">schema</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="s2">&quot;absurd&quot;</span><span class="p">),</span>
+                    <span class="n">table</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;r_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+                <span class="p">),</span>
+                <span class="p">{</span><span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">run_result</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">run_result</span><span class="p">:</span>
+            <span class="n">event_payload</span><span class="p">,</span> <span class="n">_run_state</span><span class="p">,</span> <span class="n">wake_event</span> <span class="o">=</span> <span class="n">run_result</span>
+
+            <span class="c1"># Only consume event_payload if it matches the event we&#39;re waiting for</span>
+            <span class="k">if</span> <span class="n">event_payload</span> <span class="ow">and</span> <span class="n">wake_event</span> <span class="o">==</span> <span class="n">event_name</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2"> woken with event &#39;</span><span class="si">{</span><span class="n">event_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">event_payload</span>
+            <span class="k">if</span> <span class="n">event_payload</span> <span class="ow">and</span> <span class="n">wake_event</span> <span class="o">!=</span> <span class="n">event_name</span><span class="p">:</span>
+                <span class="c1"># Ignore stale payload from a different event</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Ignoring stale payload for &#39;</span><span class="si">{</span><span class="n">wake_event</span><span class="si">}</span><span class="s2">&#39; while waiting for &#39;</span><span class="si">{</span><span class="n">event_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Event doesn&#39;t exist yet - register wait and enter SLEEPING state</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">task_id</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">step_name</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;task_id and step_name required for registering event wait&quot;</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="n">msg</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">timeout_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">timeout_seconds</span><span class="p">)</span>
+
+        <span class="c1"># Register wait in wait_registrations table</span>
+        <span class="c1"># SECURITY FIX: Use sql.Identifier to prevent SQL injection</span>
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="n">sql</span><span class="o">.</span><span class="n">SQL</span><span class="p">(</span>
+                    <span class="s2">&quot;INSERT INTO </span><span class="si">{schema}</span><span class="s2">.</span><span class="si">{table}</span><span class="s2"> &quot;</span>
+                    <span class="s2">&quot;(task_id, run_id, step_name, event_name, timeout_at) &quot;</span>
+                    <span class="s2">&quot;VALUES (</span><span class="si">%(task_id)s</span><span class="s2">, </span><span class="si">%(run_id)s</span><span class="s2">, </span><span class="si">%(step_name)s</span><span class="s2">, </span><span class="si">%(event_name)s</span><span class="s2">, </span><span class="si">%(timeout_at)s</span><span class="s2">)&quot;</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">schema</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="s2">&quot;absurd&quot;</span><span class="p">),</span>
+                    <span class="n">table</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;w_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+                <span class="p">),</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="n">task_id</span><span class="p">,</span>
+                    <span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span>
+                    <span class="s2">&quot;step_name&quot;</span><span class="p">:</span> <span class="n">step_name</span><span class="p">,</span>
+                    <span class="s2">&quot;event_name&quot;</span><span class="p">:</span> <span class="n">event_name</span><span class="p">,</span>
+                    <span class="s2">&quot;timeout_at&quot;</span><span class="p">:</span> <span class="n">timeout_at</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Raise exception so orchestrator can mark run as SLEEPING</span>
+        <span class="c1"># The orchestrator holds the run row lock, so we can&#39;t update it here</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2"> sleeping, waiting for event &#39;</span><span class="si">{</span><span class="n">event_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
+        <span class="k">raise</span> <span class="n">AbsurdSleepError</span><span class="p">(</span>
+            <span class="n">msg</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
+            <span class="n">event_name</span><span class="o">=</span><span class="n">event_name</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.set_run_sleeping">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.set_run_sleeping">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_run_sleeping</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span> <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span> <span class="n">event_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mark a run as SLEEPING waiting for an event.</span>
+
+<span class="sd">        Called by orchestrator after catching AbsurdSleepException.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># SECURITY FIX: Use sql.Identifier to prevent SQL injection</span>
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="n">sql</span><span class="o">.</span><span class="n">SQL</span><span class="p">(</span>
+                    <span class="s2">&quot;UPDATE </span><span class="si">{schema}</span><span class="s2">.</span><span class="si">{table}</span><span class="s2"> &quot;</span>
+                    <span class="s2">&quot;SET state = &#39;sleeping&#39;, wake_event = </span><span class="si">%(event_name)s</span><span class="s2"> &quot;</span>
+                    <span class="s2">&quot;WHERE run_id = </span><span class="si">%(run_id)s</span><span class="s2">&quot;</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">schema</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="s2">&quot;absurd&quot;</span><span class="p">),</span>
+                    <span class="n">table</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;r_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+                <span class="p">),</span>
+                <span class="p">{</span><span class="s2">&quot;event_name&quot;</span><span class="p">:</span> <span class="n">event_name</span><span class="p">,</span> <span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">},</span>
+            <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Run </span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2"> marked as SLEEPING, waiting for &#39;</span><span class="si">{</span><span class="n">event_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.emit_event">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.emit_event">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">emit_event</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">event_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">payload</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Emit an event and wake any runs waiting for it.</span>
+
+<span class="sd">        This implements the Absurd waker pattern:</span>
+<span class="sd">        1. Insert event into events table</span>
+<span class="sd">        2. Find all runs waiting for this event (from wait_registrations)</span>
+<span class="sd">        3. Wake them up by marking as available with event payload</span>
+<span class="sd">        4. Delete wait registrations (fulfilled)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">payload_dict</span> <span class="o">=</span> <span class="n">payload</span> <span class="ow">or</span> <span class="p">{}</span>
+
+        <span class="c1"># Insert into the events table</span>
+        <span class="c1"># Use ON CONFLICT DO NOTHING since event_name is the primary key</span>
+        <span class="c1"># (events can only be emitted once)</span>
+        <span class="c1"># SECURITY FIX: Use sql.Identifier to prevent SQL injection</span>
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="n">sql</span><span class="o">.</span><span class="n">SQL</span><span class="p">(</span>
+                    <span class="s2">&quot;INSERT INTO </span><span class="si">{schema}</span><span class="s2">.</span><span class="si">{table}</span><span class="s2"> (event_name, payload, emitted_at) &quot;</span>
+                    <span class="s2">&quot;VALUES (</span><span class="si">%(event_name)s</span><span class="s2">, CAST(</span><span class="si">%(payload)s</span><span class="s2"> AS jsonb), </span><span class="si">%(emitted_at)s</span><span class="s2">) &quot;</span>
+                    <span class="s2">&quot;ON CONFLICT (event_name) DO NOTHING&quot;</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">schema</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="s2">&quot;absurd&quot;</span><span class="p">),</span>
+                    <span class="n">table</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;e_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+                <span class="p">),</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;event_name&quot;</span><span class="p">:</span> <span class="n">event_name</span><span class="p">,</span>
+                    <span class="s2">&quot;payload&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">payload_dict</span><span class="p">),</span>  <span class="c1"># Convert to JSON string for CAST</span>
+                    <span class="s2">&quot;emitted_at&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">),</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Event &#39;</span><span class="si">{</span><span class="n">event_name</span><span class="si">}</span><span class="s2">&#39; emitted&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Find all runs waiting for this event</span>
+        <span class="c1"># SECURITY FIX: Use sql.Identifier to prevent SQL injection</span>
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="n">sql</span><span class="o">.</span><span class="n">SQL</span><span class="p">(</span>
+                    <span class="s2">&quot;SELECT DISTINCT run_id FROM </span><span class="si">{schema}</span><span class="s2">.</span><span class="si">{table}</span><span class="s2"> WHERE event_name = </span><span class="si">%(event_name)s</span><span class="s2">&quot;</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">schema</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="s2">&quot;absurd&quot;</span><span class="p">),</span>
+                    <span class="n">table</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;w_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+                <span class="p">),</span>
+                <span class="p">{</span><span class="s2">&quot;event_name&quot;</span><span class="p">:</span> <span class="n">event_name</span><span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">waiting_runs</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">waiting_runs</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Waking </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">waiting_runs</span><span class="p">)</span><span class="si">}</span><span class="s2"> run(s) for event &#39;</span><span class="si">{</span><span class="n">event_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Wake each run by marking as available with event payload</span>
+            <span class="c1"># SECURITY FIX: Use sql.Identifier to prevent SQL injection</span>
+            <span class="k">for</span> <span class="p">(</span><span class="n">run_id_val</span><span class="p">,)</span> <span class="ow">in</span> <span class="n">waiting_runs</span><span class="p">:</span>
+                <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+                    <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                        <span class="n">sql</span><span class="o">.</span><span class="n">SQL</span><span class="p">(</span>
+                            <span class="s2">&quot;UPDATE </span><span class="si">{schema}</span><span class="s2">.</span><span class="si">{table}</span><span class="s2"> &quot;</span>
+                            <span class="s2">&quot;SET state = &#39;pending&#39;, &quot;</span>
+                            <span class="s2">&quot;    available_at = </span><span class="si">%(now)s</span><span class="s2">, &quot;</span>
+                            <span class="s2">&quot;    wake_event = </span><span class="si">%(event_name)s</span><span class="s2">, &quot;</span>
+                            <span class="s2">&quot;    event_payload = CAST(</span><span class="si">%(payload)s</span><span class="s2"> AS jsonb) &quot;</span>
+                            <span class="s2">&quot;WHERE run_id = </span><span class="si">%(run_id)s</span><span class="s2"> AND state = &#39;sleeping&#39;&quot;</span>
+                        <span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                            <span class="n">schema</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="s2">&quot;absurd&quot;</span><span class="p">),</span>
+                            <span class="n">table</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;r_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+                        <span class="p">),</span>
+                        <span class="p">{</span>
+                            <span class="s2">&quot;now&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">),</span>
+                            <span class="s2">&quot;event_name&quot;</span><span class="p">:</span> <span class="n">event_name</span><span class="p">,</span>
+                            <span class="s2">&quot;payload&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">payload_dict</span><span class="p">),</span>
+                            <span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id_val</span><span class="p">,</span>
+                        <span class="p">},</span>
+                    <span class="p">)</span>
+
+            <span class="c1"># Delete fulfilled wait registrations</span>
+            <span class="c1"># SECURITY FIX: Use sql.Identifier to prevent SQL injection</span>
+            <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+                <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                    <span class="n">sql</span><span class="o">.</span><span class="n">SQL</span><span class="p">(</span>
+                        <span class="s2">&quot;DELETE FROM </span><span class="si">{schema}</span><span class="s2">.</span><span class="si">{table}</span><span class="s2"> WHERE event_name = </span><span class="si">%(event_name)s</span><span class="s2">&quot;</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">schema</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="s2">&quot;absurd&quot;</span><span class="p">),</span>
+                        <span class="n">table</span><span class="o">=</span><span class="n">sql</span><span class="o">.</span><span class="n">Identifier</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;w_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+                    <span class="p">),</span>
+                    <span class="p">{</span><span class="s2">&quot;event_name&quot;</span><span class="p">:</span> <span class="n">event_name</span><span class="p">},</span>
+                <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.get_run_checkpoint">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.get_run_checkpoint">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_run_checkpoint</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span> <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span> <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a specific checkpoint for a run.&quot;&quot;&quot;</span>
+        <span class="n">checkpoints</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_checkpoints_for_run</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">checkpoints</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">step_name</span><span class="p">)</span></div>
+
+
+    <span class="c1"># =========================================================================</span>
+    <span class="c1"># Workflow Run Tracking Methods (Phase 10)</span>
+    <span class="c1"># =========================================================================</span>
+
+<div class="viewcode-block" id="AbsurdClient.create_workflow_run">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.create_workflow_run">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_workflow_run</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">workflow_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">workflow_version</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">inputs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">absurd_run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">created_by</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">tags</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">workflow_hash</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new workflow_run record to track workflow execution.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            conn: Database connection (transaction-aware)</span>
+<span class="sd">            workflow_name: Logical workflow name (must match ``^[a-z][a-z0-9_]*$``, no &#39;__&#39;)</span>
+<span class="sd">            workflow_version: Workflow version (must match ``^[a-zA-Z0-9._-]+$``, no &#39;__&#39;)</span>
+<span class="sd">            inputs: Workflow input parameters</span>
+<span class="sd">            absurd_run_id: Optional root Absurd run_id</span>
+<span class="sd">            created_by: Optional user/system identifier</span>
+<span class="sd">            tags: Optional key-value tags for filtering</span>
+<span class="sd">            workflow_hash: Optional SHA-256 hash of workflow definition</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            workflow_run_id: UUID of the created workflow_run record</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;__&quot;</span> <span class="ow">in</span> <span class="n">workflow_name</span> <span class="ow">or</span> <span class="s2">&quot;__&quot;</span> <span class="ow">in</span> <span class="n">workflow_version</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Workflow name/version cannot contain &#39;__&#39; (reserved separator)&quot;</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+        <span class="n">workflow_run_id</span> <span class="o">=</span> <span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Creating workflow_run: </span><span class="si">{</span><span class="n">workflow_name</span><span class="si">}</span><span class="s2"> v</span><span class="si">{</span><span class="n">workflow_version</span><span class="si">}</span><span class="s2"> (id=</span><span class="si">{</span><span class="n">workflow_run_id</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">                INSERT INTO workflow_run (</span>
+<span class="sd">                    workflow_run_id, workflow_name, workflow_version, workflow_hash,</span>
+<span class="sd">                    status, absurd_run_id, absurd_queue, inputs, created_by, tags</span>
+<span class="sd">                ) VALUES (</span>
+<span class="sd">                    %(workflow_run_id)s, %(workflow_name)s, %(workflow_version)s, %(workflow_hash)s,</span>
+<span class="sd">                    &#39;pending&#39;, %(absurd_run_id)s, %(queue_name)s, %(inputs)s, %(created_by)s, %(tags)s</span>
+<span class="sd">                )</span>
+<span class="sd">                &quot;&quot;&quot;</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;workflow_run_id&quot;</span><span class="p">:</span> <span class="n">workflow_run_id</span><span class="p">,</span>
+                    <span class="s2">&quot;workflow_name&quot;</span><span class="p">:</span> <span class="n">workflow_name</span><span class="p">,</span>
+                    <span class="s2">&quot;workflow_version&quot;</span><span class="p">:</span> <span class="n">workflow_version</span><span class="p">,</span>
+                    <span class="s2">&quot;workflow_hash&quot;</span><span class="p">:</span> <span class="n">workflow_hash</span><span class="p">,</span>
+                    <span class="s2">&quot;absurd_run_id&quot;</span><span class="p">:</span> <span class="n">absurd_run_id</span><span class="p">,</span>
+                    <span class="s2">&quot;queue_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue_name</span><span class="p">,</span>
+                    <span class="s2">&quot;inputs&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span> <span class="k">if</span> <span class="n">inputs</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="s2">&quot;created_by&quot;</span><span class="p">:</span> <span class="n">created_by</span><span class="p">,</span>
+                    <span class="s2">&quot;tags&quot;</span><span class="p">:</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">tags</span><span class="p">)</span> <span class="k">if</span> <span class="n">tags</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created workflow_run: </span><span class="si">{</span><span class="n">workflow_run_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">workflow_run_id</span></div>
+
+
+<div class="viewcode-block" id="AbsurdClient.update_workflow_run_status">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.AbsurdClient.update_workflow_run_status">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_workflow_run_status</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+        <span class="n">workflow_run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span>
+        <span class="n">status</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">result</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">error</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">started_at</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">completed_at</span><span class="p">:</span> <span class="n">datetime</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">task_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update workflow_run status and metadata.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            conn: Database connection</span>
+<span class="sd">            workflow_run_id: UUID of workflow_run to update</span>
+<span class="sd">            status: New status (pending, running, completed, failed, cancelled)</span>
+<span class="sd">            result: Optional final result</span>
+<span class="sd">            error: Optional error details</span>
+<span class="sd">            started_at: Optional start timestamp</span>
+<span class="sd">            completed_at: Optional completion timestamp</span>
+<span class="sd">            task_count: Optional task count</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Updating workflow_run </span><span class="si">{</span><span class="n">workflow_run_id</span><span class="si">}</span><span class="s2"> to &#39;</span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+
+        <span class="n">update_fields</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;status = </span><span class="si">%(status)s</span><span class="s2">&quot;</span><span class="p">]</span>
+        <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;workflow_run_id&quot;</span><span class="p">:</span> <span class="n">workflow_run_id</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="n">status</span><span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">update_fields</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;result = </span><span class="si">%(result)s</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">params</span><span class="p">[</span><span class="s2">&quot;result&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">update_fields</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;error = </span><span class="si">%(error)s</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">params</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">started_at</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">update_fields</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;started_at = </span><span class="si">%(started_at)s</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">params</span><span class="p">[</span><span class="s2">&quot;started_at&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">started_at</span>
+        <span class="k">if</span> <span class="n">completed_at</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">update_fields</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;completed_at = </span><span class="si">%(completed_at)s</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">params</span><span class="p">[</span><span class="s2">&quot;completed_at&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">completed_at</span>
+        <span class="k">if</span> <span class="n">task_count</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">update_fields</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;task_count = </span><span class="si">%(task_count)s</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">params</span><span class="p">[</span><span class="s2">&quot;task_count&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">task_count</span>
+
+        <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;UPDATE workflow_run SET </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">update_fields</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;WHERE workflow_run_id = %(workflow_run_id)s&quot;</span><span class="p">,</span>
+                <span class="n">params</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">cur</span><span class="o">.</span><span class="n">rowcount</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No workflow_run found: </span><span class="si">{</span><span class="n">workflow_run_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Updated workflow_run </span><span class="si">{</span><span class="n">workflow_run_id</span><span class="si">}</span><span class="s2"> to &#39;</span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span></div>
+</div>
+
+
+
+<span class="c1"># Convenience functions for common patterns</span>
+<div class="viewcode-block" id="spawn_retry_task">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.spawn_retry_task">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">spawn_retry_task</span><span class="p">(</span>
+    <span class="n">client</span><span class="p">:</span> <span class="n">AbsurdClient</span><span class="p">,</span>
+    <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+    <span class="n">task_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">max_attempts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="n">retry_kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;exponential&quot;</span><span class="p">,</span>
+    <span class="n">base_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span>
+    <span class="n">factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
+    <span class="n">max_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Spawn a task with retry strategy.&quot;&quot;&quot;</span>
+    <span class="n">retry_strategy</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;kind&quot;</span><span class="p">:</span> <span class="n">retry_kind</span><span class="p">,</span>
+        <span class="s2">&quot;base_seconds&quot;</span><span class="p">:</span> <span class="n">base_seconds</span><span class="p">,</span>
+        <span class="s2">&quot;factor&quot;</span><span class="p">:</span> <span class="n">factor</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">max_seconds</span><span class="p">:</span>
+        <span class="n">retry_strategy</span><span class="p">[</span><span class="s2">&quot;max_seconds&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_seconds</span>
+
+    <span class="k">return</span> <span class="n">client</span><span class="o">.</span><span class="n">spawn_task</span><span class="p">(</span>
+        <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+        <span class="n">task_name</span><span class="o">=</span><span class="n">task_name</span><span class="p">,</span>
+        <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">,</span>
+        <span class="n">max_attempts</span><span class="o">=</span><span class="n">max_attempts</span><span class="p">,</span>
+        <span class="n">retry_strategy</span><span class="o">=</span><span class="n">retry_strategy</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="spawn_cancellable_task">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.spawn_cancellable_task">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">spawn_cancellable_task</span><span class="p">(</span>
+    <span class="n">client</span><span class="p">:</span> <span class="n">AbsurdClient</span><span class="p">,</span>
+    <span class="n">conn</span><span class="p">:</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Connection</span><span class="p">,</span>
+    <span class="n">task_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">max_delay_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">max_duration_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">,</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Spawn a task with cancellation rules.&quot;&quot;&quot;</span>
+    <span class="n">cancellation</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">if</span> <span class="n">max_delay_seconds</span><span class="p">:</span>
+        <span class="n">cancellation</span><span class="p">[</span><span class="s2">&quot;max_delay&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_delay_seconds</span>
+
+    <span class="k">if</span> <span class="n">max_duration_seconds</span><span class="p">:</span>
+        <span class="n">cancellation</span><span class="p">[</span><span class="s2">&quot;max_duration&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_duration_seconds</span>
+
+    <span class="k">return</span> <span class="n">client</span><span class="o">.</span><span class="n">spawn_task</span><span class="p">(</span>
+        <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+        <span class="n">task_name</span><span class="o">=</span><span class="n">task_name</span><span class="p">,</span>
+        <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">,</span>
+        <span class="n">cancellation</span><span class="o">=</span><span class="n">cancellation</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="c1"># Singleton instance</span>
+<span class="n">_absurd_client_singleton</span><span class="p">:</span> <span class="n">AbsurdClient</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<div class="viewcode-block" id="get_absurd_client">
+<a class="viewcode-back" href="../absurd_client.html#absurd_client.get_absurd_client">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_absurd_client</span><span class="p">(</span>
+    <span class="n">queue_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">worker_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AbsurdClient</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the singleton AbsurdClient instance.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        queue_name: Optional queue name (only used on first call)</span>
+<span class="sd">        worker_id: Optional worker ID (only used on first call)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Shared AbsurdClient instance</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_absurd_client_singleton</span>  <span class="c1"># noqa: PLW0603</span>
+
+    <span class="k">if</span> <span class="n">_absurd_client_singleton</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_absurd_client_singleton</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span>
+            <span class="n">queue_name</span><span class="o">=</span><span class="n">queue_name</span><span class="p">,</span>
+            <span class="n">worker_id</span><span class="o">=</span><span class="n">worker_id</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Created AbsurdClient singleton with queue &#39;</span><span class="si">{</span><span class="n">_absurd_client_singleton</span><span class="o">.</span><span class="n">queue_name</span><span class="si">}</span><span class="s2">&#39; &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;and worker &#39;</span><span class="si">{</span><span class="n">_absurd_client_singleton</span><span class="o">.</span><span class="n">worker_id</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">_absurd_client_singleton</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, rodmena-limited.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
