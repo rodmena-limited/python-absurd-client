@@ -121,6 +121,36 @@ This project is licensed under the terms specified in the LICENSE file.
 
 Contributions are welcome! Please open an issue or submit a pull request on GitHub.
 
+## Highway DSL Integration
+
+The [highway-dsl](https://github.com/rodmena-limited/highway_dsl) package is a Python-based domain-specific language for defining complex workflows that fully supports Absurd. Highway DSL provides a fluent API for building workflows with features such as:
+
+- **Rich Operators**: Task, Condition (if/else), Parallel, ForEach, While, Wait, Switch, EmitEvent, and WaitForEvent operators
+- **Scheduling**: Built-in support for cron-based schedules, start dates, and catchup configuration
+- **Event-Driven Features**: First-class support for event emission and waiting for cross-workflow coordination
+- **Error Handling**: Retry policies, timeout policies, and callback hooks for production-grade workflows
+- **YAML/JSON Interoperability**: Workflows can be defined in Python and exported to YAML or JSON
+- **Mermaid Diagram Generation**: Visualize workflows with generated Mermaid diagrams
+
+Example of defining a workflow with Highway DSL:
+
+```python
+from highway_dsl import WorkflowBuilder
+
+workflow = (
+    WorkflowBuilder("simple_etl")
+    .task("extract", "etl.extract_data", result_key="raw_data")
+    .task("transform", "etl.transform_data", args=["{{raw_data}}"], result_key="transformed_data")
+    .task("load", "etl.load_data", args=["{{transformed_data}}"])
+    .build()
+)
+
+# Export to YAML for use with Absurd
+print(workflow.to_yaml())
+```
+
+With highway-dsl, you can define complex workflow patterns using a clear, fluent syntax and export them in formats compatible with Absurd's PostgreSQL-based workflow engine.
+
 ## Support
 
 For support, please open an issue in the [GitHub repository](https://github.com/rodmena-limited/python-absurd-client).

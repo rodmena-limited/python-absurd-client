@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="absurd",
-    version="0.0.4",
+    version="0.0.5",
     author="Farshid Ashouri",
     author_email="farshid.ashouri@example.com",
     description="A Python client for the Absurd SQL-based durable execution workflow system",

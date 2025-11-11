@@ -46,7 +46,7 @@ class AbsurdClient:
         queue_name: str | None = None,
         worker_id: str | None = None,
     ):
-        queue_name = queue_name or os.getenv("ABSURD_DEFAULT_QUEUE", "highway_default")
+        queue_name = queue_name or os.getenv("ABSURD_DEFAULT_QUEUE", "absurd_default")
 
         # CRITICAL SECURITY: Validate queue_name to prevent SQL injection
         # Queue names are used in table name construction (e.g., absurd.t_{queue_name})
@@ -58,7 +58,7 @@ class AbsurdClient:
             )
 
         self.queue_name = queue_name
-        self.worker_id = worker_id or os.getenv("ABSURD_WORKER_ID", "highway_worker_1")
+        self.worker_id = worker_id or os.getenv("ABSURD_WORKER_ID", "absurd_worker_1")
 
     @staticmethod
     def _is_valid_identifier(name: str) -> bool:
