@@ -1,0 +1,14 @@
+# Runtime dependencies
+psycopg>=3.0
+
+# For binary installation if needed
+# psycopg[binary]>=3.0
+
+# For connection pooling if needed
+# psycopg-pool>=3.0
+
+# Development dependencies
+pytest>=6.0
+pytest-cov
+black
+flake8
