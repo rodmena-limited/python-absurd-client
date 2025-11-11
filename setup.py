@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="absurd",
-    version="0.0.5",
+    version="0.0.6",
     author="Farshid Ashouri",
     author_email="farshid.ashouri@example.com",
     description="A Python client for the Absurd SQL-based durable execution workflow system",
@@ -16,7 +16,7 @@ setup(
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: MIT License",  # This should align with your LICENSE file
+        "License :: OSI Approved :: Apache Software License",  # Updated to match your LICENSE file
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",
