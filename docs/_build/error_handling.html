@@ -1,0 +1,396 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Error Handling &mdash; python-absurd-client 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Usage Examples" href="examples.html" />
+    <link rel="prev" title="Workflow Tracking" href="workflow_tracking.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            python-absurd-client
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflow_tracking.html">Workflow Tracking</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Error Handling</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#absurdsleeperror">AbsurdSleepError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#database-errors">Database Errors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#validation-errors">Validation Errors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#event-wait-errors">Event Wait Errors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#retry-and-failure-handling">Retry and Failure Handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#connection-errors">Connection Errors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#exception-handling-in-task-processing">Exception Handling in Task Processing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#advanced-error-handling-patterns">Advanced Error Handling Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#best-practices">Best Practices</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Usage Examples</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">python-absurd-client</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Error Handling</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/error_handling.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="error-handling">
+<h1>Error Handling<a class="headerlink" href="#error-handling" title="Link to this heading"></a></h1>
+<p>The Absurd client includes comprehensive error handling for various scenarios. Understanding these error patterns is crucial for building robust applications.</p>
+<section id="absurdsleeperror">
+<h2>AbsurdSleepError<a class="headerlink" href="#absurdsleeperror" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">AbsurdSleepError</span></code> is a special exception that signals when a run enters SLEEPING state to wait for an event. This is used by the orchestrator to free worker threads while tasks wait for events.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span><span class="p">,</span> <span class="n">AbsurdSleepError</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;my_queue&quot;</span><span class="p">)</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">payload</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">wait_for_event</span><span class="p">(</span>
+        <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
+        <span class="n">event_name</span><span class="o">=</span><span class="s2">&quot;data_ready&quot;</span><span class="p">,</span>
+        <span class="n">timeout_seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>
+        <span class="n">task_id</span><span class="o">=</span><span class="n">task_id</span><span class="p">,</span>
+        <span class="n">step_name</span><span class="o">=</span><span class="s2">&quot;waiting_step&quot;</span>
+    <span class="p">)</span>
+<span class="k">except</span> <span class="n">AbsurdSleepError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="c1"># The orchestrator should catch this and mark the run as sleeping</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Run </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">run_id</span><span class="si">}</span><span class="s2"> sleeping, waiting for event &#39;</span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">event_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+    <span class="c1"># In a real orchestrator, this would mark the run as sleeping</span>
+    <span class="c1"># and free the worker thread to process other tasks</span>
+
+<span class="c1"># In the orchestrator, you would typically handle it like this:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_task_processing</span><span class="p">():</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Process task here</span>
+        <span class="k">pass</span>
+    <span class="k">except</span> <span class="n">AbsurdSleepError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="c1"># Mark the run as sleeping</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">set_run_sleeping</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">event_name</span><span class="p">)</span>
+        <span class="c1"># Free worker thread - return from function without completing task</span>
+        <span class="k">return</span>
+</pre></div>
+</div>
+</section>
+<section id="database-errors">
+<h2>Database Errors<a class="headerlink" href="#database-errors" title="Link to this heading"></a></h2>
+<p>The client handles database errors appropriately:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;my_queue&quot;</span><span class="p">)</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="c1"># Attempt to complete a task</span>
+    <span class="n">client</span><span class="o">.</span><span class="n">complete_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="c1"># Handle database errors or other issues</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to complete task: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="c1"># Handle appropriately based on your application needs</span>
+</pre></div>
+</div>
+</section>
+<section id="validation-errors">
+<h2>Validation Errors<a class="headerlink" href="#validation-errors" title="Link to this heading"></a></h2>
+<p>Queue names are validated to prevent SQL injection:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">try</span><span class="p">:</span>
+    <span class="c1"># This will raise ValueError if queue_name is invalid</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;invalid-queue-name!&quot;</span><span class="p">)</span>  <span class="c1"># Invalid character</span>
+<span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid queue name: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Valid queue names contain only letters, numbers, and underscores</span>
+<span class="c1"># and must start with a letter or underscore</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;valid_queue_name&quot;</span><span class="p">)</span>  <span class="c1"># Valid</span>
+</pre></div>
+</div>
+</section>
+<section id="event-wait-errors">
+<h2>Event Wait Errors<a class="headerlink" href="#event-wait-errors" title="Link to this heading"></a></h2>
+<p>When using <code class="docutils literal notranslate"><span class="pre">wait_for_event</span></code>, you must specify a timeout to prevent hung workflows:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;my_queue&quot;</span><span class="p">)</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="c1"># This will raise ValueError because no timeout is specified</span>
+    <span class="n">payload</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">wait_for_event</span><span class="p">(</span>
+        <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
+        <span class="n">event_name</span><span class="o">=</span><span class="s2">&quot;data_ready&quot;</span><span class="p">,</span>
+        <span class="c1"># Missing timeout_seconds parameter</span>
+        <span class="n">task_id</span><span class="o">=</span><span class="n">task_id</span><span class="p">,</span>
+        <span class="n">step_name</span><span class="o">=</span><span class="s2">&quot;waiting_step&quot;</span>
+    <span class="p">)</span>
+<span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Timeout required: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Correct usage with timeout</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">payload</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">wait_for_event</span><span class="p">(</span>
+        <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
+        <span class="n">event_name</span><span class="o">=</span><span class="s2">&quot;data_ready&quot;</span><span class="p">,</span>
+        <span class="n">timeout_seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>  <span class="c1"># 1 hour timeout</span>
+        <span class="n">task_id</span><span class="o">=</span><span class="n">task_id</span><span class="p">,</span>
+        <span class="n">step_name</span><span class="o">=</span><span class="s2">&quot;waiting_step&quot;</span>
+    <span class="p">)</span>
+<span class="k">except</span> <span class="ne">TimeoutError</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Event not received within timeout period&quot;</span><span class="p">)</span>
+<span class="k">except</span> <span class="n">AbsurdSleepError</span><span class="p">:</span>
+    <span class="c1"># Expected when waiting for events - orchestrator handles this</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+</section>
+<section id="retry-and-failure-handling">
+<h2>Retry and Failure Handling<a class="headerlink" href="#retry-and-failure-handling" title="Link to this heading"></a></h2>
+<p>When tasks fail, you can specify detailed error information:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span><span class="p">,</span> <span class="n">spawn_retry_task</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;my_queue&quot;</span><span class="p">)</span>
+
+<span class="c1"># Spawn a task with retry strategy</span>
+<span class="n">retry_strategy</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;kind&quot;</span><span class="p">:</span> <span class="s2">&quot;exponential&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;base_seconds&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+    <span class="s2">&quot;factor&quot;</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span>
+    <span class="s2">&quot;max_seconds&quot;</span><span class="p">:</span> <span class="mi">3600</span>
+<span class="p">}</span>
+
+<span class="n">task_id</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">workflow_run_id</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">spawn_task</span><span class="p">(</span>
+    <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+    <span class="n">task_name</span><span class="o">=</span><span class="s2">&quot;reliable_task&quot;</span><span class="p">,</span>
+    <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span><span class="p">},</span>
+    <span class="n">max_attempts</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>  <span class="c1"># Will attempt up to 3 times</span>
+    <span class="n">retry_strategy</span><span class="o">=</span><span class="n">retry_strategy</span>
+<span class="p">)</span>
+
+<span class="c1"># Fail a task with detailed error information</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="c1"># Process task and it fails</span>
+    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Processing failed&quot;</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="n">client</span><span class="o">.</span><span class="n">fail_task</span><span class="p">(</span>
+        <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
+        <span class="n">reason</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;ProcessingError&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+            <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+            <span class="s2">&quot;details&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;input&quot;</span><span class="p">:</span> <span class="s2">&quot;data_value&quot;</span><span class="p">,</span> <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="s2">&quot;processing&quot;</span><span class="p">,</span> <span class="s2">&quot;attempt&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="connection-errors">
+<h2>Connection Errors<a class="headerlink" href="#connection-errors" title="Link to this heading"></a></h2>
+<p>Always ensure proper connection management:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">psycopg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;my_queue&quot;</span><span class="p">)</span>
+
+<span class="c1"># Use connection context managers to ensure proper cleanup</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="k">with</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;your_connection_string&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+        <span class="n">task_id</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">workflow_run_id</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">spawn_task</span><span class="p">(</span>
+            <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+            <span class="n">task_name</span><span class="o">=</span><span class="s2">&quot;example_task&quot;</span><span class="p">,</span>
+            <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span><span class="p">}</span>
+        <span class="p">)</span>
+<span class="k">except</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">OperationalError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Database connection error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">except</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PostgreSQL error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="exception-handling-in-task-processing">
+<h2>Exception Handling in Task Processing<a class="headerlink" href="#exception-handling-in-task-processing" title="Link to this heading"></a></h2>
+<p>Properly handle exceptions when processing tasks:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span><span class="p">,</span> <span class="n">AbsurdSleepError</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;error_handling_queue&quot;</span><span class="p">)</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">process_task_with_error_handling</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">task_id</span><span class="p">,</span> <span class="n">task_name</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Process the task</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">execute_task_logic</span><span class="p">(</span><span class="n">task_name</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">complete_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Task </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2"> completed successfully&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">AbsurdSleepError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="c1"># Handle sleep error - this is expected for event-driven tasks</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">set_run_sleeping</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">event_name</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Task </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2"> sleeping, waiting for event </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">event_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="c1"># Handle any other errors by failing the task</span>
+        <span class="n">error_info</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+            <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+            <span class="s2">&quot;traceback&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">__traceback__</span><span class="p">)</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">__traceback__</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s2">&quot;task_id&quot;</span><span class="p">:</span> <span class="n">task_id</span><span class="p">,</span>
+            <span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span>
+        <span class="p">}</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">fail_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">error_info</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Task </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2"> failed: </span><span class="si">{</span><span class="n">error_info</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="advanced-error-handling-patterns">
+<h2>Advanced Error Handling Patterns<a class="headerlink" href="#advanced-error-handling-patterns" title="Link to this heading"></a></h2>
+<p>For complex workflows, consider implementing sophisticated error handling:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">process_with_retry_logic</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">task_id</span><span class="p">,</span> <span class="n">task_name</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Process the task with custom business logic</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">custom_task_processor</span><span class="p">(</span><span class="n">task_name</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">complete_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">AbsurdSleepError</span><span class="p">:</span>
+        <span class="c1"># Handle event wait (expected behavior)</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">set_run_sleeping</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="s2">&quot;expected_event&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">TemporaryError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="c1"># For temporary errors, fail with retry</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">fail_task</span><span class="p">(</span>
+            <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
+            <span class="n">reason</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;TemporaryError&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+                <span class="s2">&quot;is_retryable&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="n">FatalError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="c1"># For fatal errors, fail without retry</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">fail_task</span><span class="p">(</span>
+            <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
+            <span class="n">reason</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;FatalError&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+                <span class="s2">&quot;is_retryable&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="c1"># For unexpected errors, log and fail</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected error processing task </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">fail_task</span><span class="p">(</span>
+            <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
+            <span class="n">reason</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;UnexpectedError&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+                <span class="s2">&quot;is_retryable&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>  <span class="c1"># Retry for unknown errors</span>
+                <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="best-practices">
+<h2>Best Practices<a class="headerlink" href="#best-practices" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p>Always specify timeouts when using <code class="docutils literal notranslate"><span class="pre">wait_for_event</span></code></p></li>
+<li><p>Use try-catch blocks around all client operations</p></li>
+<li><p>Handle <code class="docutils literal notranslate"><span class="pre">AbsurdSleepError</span></code> appropriately in your orchestrator</p></li>
+<li><p>Validate inputs before passing to client methods</p></li>
+<li><p>Use connection pooling for production applications</p></li>
+<li><p>Implement proper logging for error diagnosis</p></li>
+<li><p>Test error handling paths in your application</p></li>
+<li><p>Use detailed error messages that help with debugging</p></li>
+<li><p>Distinguish between retryable and non-retryable errors</p></li>
+<li><p>Implement circuit breaker patterns for external dependencies</p></li>
+</ol>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="workflow_tracking.html" class="btn btn-neutral float-left" title="Workflow Tracking" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="examples.html" class="btn btn-neutral float-right" title="Usage Examples" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, rodmena-limited.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

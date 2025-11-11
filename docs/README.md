@@ -1,20 +1,47 @@
-# Documentation for python-absurd-client
+# Documentation for Python Absurd Client
 
-This directory contains the Sphinx-based documentation for the python-absurd-client library.
+This directory contains the source files for the Sphinx-based documentation of the Python Absurd Client.
 
-## Building the Documentation
+## Structure
 
-To build the documentation locally, run:
+- `index.rst` - Main documentation index
+- `installation.rst` - Installation guide
+- `quickstart.rst` - Quick start guide
+- `api.rst` - API reference documentation
+- `workflow_tracking.rst` - Workflow tracking features
+- `error_handling.rst` - Error handling documentation
+- `examples.rst` - Usage examples
+- `conf.py` - Sphinx configuration file
+
+## Building Documentation
+
+To build the documentation, run:
 
 ```bash
 pip install sphinx sphinx-rtd-theme
-sphinx-build -b html docs docs/_build
+cd docs
+python3 -m sphinx . _build
 ```
 
-Or using the Python module:
+The HTML documentation will be generated in the `_build` directory.
+
+## Viewing Documentation
+
+After building, you can view the documentation by opening `_build/index.html` in your web browser:
 
 ```bash
-python -m sphinx -b html docs docs/_build
+xdg-open _build/index.html  # On Linux
+open _build/index.html      # On macOS
 ```
 
-The HTML documentation will be generated in the `docs/_build` directory.
+## Documentation Coverage
+
+The documentation includes:
+
+- API reference for all classes and methods
+- Installation and setup instructions
+- Quick start examples
+- Detailed usage examples for common scenarios
+- Error handling patterns
+- Workflow tracking features
+- Best practices for production use

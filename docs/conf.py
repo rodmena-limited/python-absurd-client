@@ -8,6 +8,7 @@ import sys
 
 # Add the source code directory to the path so Sphinx can find modules
 sys.path.insert(0, os.path.abspath('../'))
+sys.path.insert(0, os.path.abspath('../absurd_client'))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -25,6 +26,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
+    'sphinx.ext.autosummary',
 ]
 
 templates_path = ['_templates']
@@ -39,7 +41,7 @@ html_static_path = ['_static']
 # Intersphinx configuration
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
-    'requests': ('https://requests.readthedocs.io/en/latest/', None),
+    'psycopg': ('https://www.psycopg.org/docs/', None),
 }
 
 # Autodoc configuration
@@ -47,4 +49,5 @@ autodoc_default_options = {
     'members': True,
     'undoc-members': True,
     'show-inheritance': True,
+    'special-members': '__init__',
 }

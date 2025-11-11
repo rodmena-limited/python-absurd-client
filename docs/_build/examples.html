@@ -1,0 +1,445 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usage Examples &mdash; python-absurd-client 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Reference" href="modules.html" />
+    <link rel="prev" title="Error Handling" href="error_handling.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            python-absurd-client
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflow_tracking.html">Workflow Tracking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="error_handling.html">Error Handling</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Usage Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#basic-task-processing">Basic Task Processing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#long-running-tasks-with-checkpoints">Long-Running Tasks with Checkpoints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#event-driven-workflows">Event-Driven Workflows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#retry-strategies">Retry Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#scheduling-and-delayed-execution">Scheduling and Delayed Execution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#connection-pooling-example">Connection Pooling Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cancellable-tasks">Cancellable Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#workflow-tracking-example">Workflow Tracking Example</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">python-absurd-client</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Usage Examples</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/examples.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="usage-examples">
+<h1>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading"></a></h1>
+<p>This section provides comprehensive examples showing how to use the Absurd client for various scenarios.</p>
+<section id="basic-task-processing">
+<h2>Basic Task Processing<a class="headerlink" href="#basic-task-processing" title="Link to this heading"></a></h2>
+<p>A simple example of spawning and processing tasks:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">psycopg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">process_task</span><span class="p">(</span><span class="n">task_name</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Simulate task processing&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">task_name</span> <span class="o">==</span> <span class="s2">&quot;echo&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;output&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Processed: </span><span class="si">{</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">}</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="s2">&quot;unknown&quot;</span><span class="p">}</span>
+
+<span class="c1"># Create client</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;default_queue&quot;</span><span class="p">)</span>
+
+<span class="c1"># Connect to database</span>
+<span class="k">with</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;your_connection_string&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+    <span class="c1"># Spawn a task</span>
+    <span class="n">task_id</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">workflow_run_id</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">spawn_task</span><span class="p">(</span>
+        <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+        <span class="n">task_name</span><span class="o">=</span><span class="s2">&quot;echo&quot;</span><span class="p">,</span>
+        <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;Hello, World!&quot;</span><span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Spawned task: </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Claim and process tasks</span>
+    <span class="n">claimed_tasks</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">claim_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">qty</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">task_data</span> <span class="ow">in</span> <span class="n">claimed_tasks</span><span class="p">:</span>
+        <span class="n">run_id</span><span class="p">,</span> <span class="n">task_id</span><span class="p">,</span> <span class="n">attempt</span><span class="p">,</span> <span class="n">task_name</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">task_data</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">process_task</span><span class="p">(</span><span class="n">task_name</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">complete_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Completed task </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">fail_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed task </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="long-running-tasks-with-checkpoints">
+<h2>Long-Running Tasks with Checkpoints<a class="headerlink" href="#long-running-tasks-with-checkpoints" title="Link to this heading"></a></h2>
+<p>For tasks that run for extended periods, use checkpoints:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;long_running_queue&quot;</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">long_running_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">task_id</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Simulate a long-running task with checkpoints&quot;&quot;&quot;</span>
+    <span class="c1"># Check if we have a checkpoint from a previous attempt</span>
+    <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_checkpoint</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">task_id</span><span class="p">,</span> <span class="s2">&quot;progress&quot;</span><span class="p">)</span>
+
+    <span class="n">start_step</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">checkpoint</span> <span class="ow">and</span> <span class="n">checkpoint</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">):</span>
+        <span class="n">start_step</span> <span class="o">=</span> <span class="n">checkpoint</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;current_step&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start_step</span><span class="p">,</span> <span class="mi">6</span><span class="p">):</span>  <span class="c1"># 5 steps total</span>
+        <span class="c1"># Simulate work</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># Simulate processing</span>
+
+        <span class="c1"># Save checkpoint</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">set_checkpoint</span><span class="p">(</span>
+            <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+            <span class="n">task_id</span><span class="o">=</span><span class="n">task_id</span><span class="p">,</span>
+            <span class="n">step_name</span><span class="o">=</span><span class="s2">&quot;progress&quot;</span><span class="p">,</span>
+            <span class="n">state</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;current_step&quot;</span><span class="p">:</span> <span class="n">step</span><span class="p">,</span> <span class="s2">&quot;completed&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;step_</span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">},</span>
+            <span class="n">owner_run</span><span class="o">=</span><span class="n">run_id</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Extend claim if needed for long operations</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">extend_claim</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">extend_by_seconds</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;completed&quot;</span><span class="p">,</span> <span class="s2">&quot;steps&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">}</span>
+
+<span class="k">with</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;your_connection_string&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+    <span class="c1"># Spawn the long-running task</span>
+    <span class="n">task_id</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">workflow_run_id</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">spawn_task</span><span class="p">(</span>
+        <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+        <span class="n">task_name</span><span class="o">=</span><span class="s2">&quot;long_running_task&quot;</span><span class="p">,</span>
+        <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;work&quot;</span><span class="p">:</span> <span class="s2">&quot;complex_job&quot;</span><span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Claim and process</span>
+    <span class="n">claimed_tasks</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">claim_task</span><span class="p">(</span><span class="n">conn</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">task_data</span> <span class="ow">in</span> <span class="n">claimed_tasks</span><span class="p">:</span>
+        <span class="n">run_id</span><span class="p">,</span> <span class="n">task_id</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">task_data</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">long_running_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">task_id</span><span class="p">)</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">complete_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">fail_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="event-driven-workflows">
+<h2>Event-Driven Workflows<a class="headerlink" href="#event-driven-workflows" title="Link to this heading"></a></h2>
+<p>Use events to coordinate between tasks:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span><span class="p">,</span> <span class="n">AbsurdSleepError</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;event_driven_queue&quot;</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">task_that_waits_for_event</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">task_id</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A task that waits for an event&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">wait_for_event</span><span class="p">(</span>
+            <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="n">run_id</span><span class="p">,</span>
+            <span class="n">event_name</span><span class="o">=</span><span class="s2">&quot;data_ready&quot;</span><span class="p">,</span>
+            <span class="n">timeout_seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>  <span class="c1"># 1 hour</span>
+            <span class="n">task_id</span><span class="o">=</span><span class="n">task_id</span><span class="p">,</span>
+            <span class="n">step_name</span><span class="o">=</span><span class="s2">&quot;waiting_for_data&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;received&quot;</span><span class="p">,</span> <span class="s2">&quot;payload&quot;</span><span class="p">:</span> <span class="n">payload</span><span class="p">}</span>
+    <span class="k">except</span> <span class="n">AbsurdSleepError</span><span class="p">:</span>
+        <span class="c1"># This is expected - the orchestrator should handle this</span>
+        <span class="c1"># by marking the task as sleeping</span>
+        <span class="k">raise</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">task_that_emits_event</span><span class="p">(</span><span class="n">conn</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A task that processes data and emits an event&quot;&quot;&quot;</span>
+    <span class="c1"># Simulate data processing</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;processed_data&quot;</span><span class="p">:</span> <span class="s2">&quot;some_value&quot;</span><span class="p">}</span>
+
+    <span class="c1"># Emit the event that other tasks are waiting for</span>
+    <span class="n">client</span><span class="o">.</span><span class="n">emit_event</span><span class="p">(</span>
+        <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+        <span class="n">event_name</span><span class="o">=</span><span class="s2">&quot;data_ready&quot;</span><span class="p">,</span>
+        <span class="n">payload</span><span class="o">=</span><span class="n">result</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;event_emitted&quot;</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="n">result</span><span class="p">}</span>
+
+<span class="c1"># In a real orchestrator, you would handle AbsurdSleepError like this:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">process_task_with_event_handling</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">task_id</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">task_that_waits_for_event</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">task_id</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">AbsurdSleepError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="c1"># Mark the run as sleeping until the event occurs</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">set_run_sleeping</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">event_name</span><span class="p">)</span>
+        <span class="c1"># Return without completing the task - it will resume when event occurs</span>
+        <span class="k">return</span> <span class="kc">None</span>
+</pre></div>
+</div>
+</section>
+<section id="retry-strategies">
+<h2>Retry Strategies<a class="headerlink" href="#retry-strategies" title="Link to this heading"></a></h2>
+<p>Handle failures with retry strategies:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span><span class="p">,</span> <span class="n">spawn_retry_task</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;retry_queue&quot;</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">unreliable_task</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A task that sometimes fails&quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
+    <span class="k">if</span> <span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">0.7</span><span class="p">:</span>  <span class="c1"># 70% chance of failure</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Random failure for demonstration&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;success&quot;</span><span class="p">}</span>
+
+<span class="k">with</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;your_connection_string&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+    <span class="c1"># Spawn with retry strategy</span>
+    <span class="n">task_id</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">workflow_run_id</span> <span class="o">=</span> <span class="n">spawn_retry_task</span><span class="p">(</span>
+        <span class="n">client</span><span class="o">=</span><span class="n">client</span><span class="p">,</span>
+        <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+        <span class="n">task_name</span><span class="o">=</span><span class="s2">&quot;unreliable_task&quot;</span><span class="p">,</span>
+        <span class="n">params</span><span class="o">=</span><span class="p">{},</span>
+        <span class="n">max_attempts</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="n">retry_kind</span><span class="o">=</span><span class="s2">&quot;exponential&quot;</span><span class="p">,</span>
+        <span class="n">base_seconds</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+        <span class="n">factor</span><span class="o">=</span><span class="mf">2.0</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Process the task</span>
+    <span class="n">claimed_tasks</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">claim_task</span><span class="p">(</span><span class="n">conn</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">task_data</span> <span class="ow">in</span> <span class="n">claimed_tasks</span><span class="p">:</span>
+        <span class="n">run_id</span><span class="p">,</span> <span class="n">task_id</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">task_data</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">unreliable_task</span><span class="p">()</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">complete_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># The retry logic is handled by Absurd</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">fail_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="scheduling-and-delayed-execution">
+<h2>Scheduling and Delayed Execution<a class="headerlink" href="#scheduling-and-delayed-execution" title="Link to this heading"></a></h2>
+<p>Schedule tasks for future execution:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;scheduled_queue&quot;</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;your_connection_string&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+    <span class="c1"># Schedule a task to run in 10 minutes</span>
+    <span class="n">task_id</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">workflow_run_id</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">spawn_task</span><span class="p">(</span>
+        <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+        <span class="n">task_name</span><span class="o">=</span><span class="s2">&quot;delayed_task&quot;</span><span class="p">,</span>
+        <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;This will run later&quot;</span><span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Schedule the task to run 10 minutes from now</span>
+    <span class="n">future_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+    <span class="n">client</span><span class="o">.</span><span class="n">schedule_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">future_time</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Task </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2"> scheduled to run at </span><span class="si">{</span><span class="n">future_time</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="connection-pooling-example">
+<h2>Connection Pooling Example<a class="headerlink" href="#connection-pooling-example" title="Link to this heading"></a></h2>
+<p>For production applications, use connection pooling:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">psycopg_pool</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConnectionPool</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">psycopg</span>
+
+<span class="c1"># Create a connection pool</span>
+<span class="n">pool</span> <span class="o">=</span> <span class="n">ConnectionPool</span><span class="p">(</span><span class="s2">&quot;your_connection_string&quot;</span><span class="p">,</span> <span class="n">min_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;pooled_queue&quot;</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">process_task_with_pooling</span><span class="p">():</span>
+    <span class="k">with</span> <span class="n">pool</span><span class="o">.</span><span class="n">connection</span><span class="p">()</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+        <span class="c1"># Spawn a task</span>
+        <span class="n">task_id</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">workflow_run_id</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">spawn_task</span><span class="p">(</span>
+            <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+            <span class="n">task_name</span><span class="o">=</span><span class="s2">&quot;pooled_task&quot;</span><span class="p">,</span>
+            <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span><span class="p">}</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Process any claimed tasks</span>
+        <span class="n">claimed_tasks</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">claim_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">qty</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">task_data</span> <span class="ow">in</span> <span class="n">claimed_tasks</span><span class="p">:</span>
+            <span class="n">run_id</span><span class="p">,</span> <span class="n">task_id</span><span class="p">,</span> <span class="n">attempt</span><span class="p">,</span> <span class="n">task_name</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">task_data</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;processed&quot;</span><span class="p">:</span> <span class="n">params</span><span class="p">}</span>
+                <span class="n">client</span><span class="o">.</span><span class="n">complete_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">client</span><span class="o">.</span><span class="n">fail_task</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="cancellable-tasks">
+<h2>Cancellable Tasks<a class="headerlink" href="#cancellable-tasks" title="Link to this heading"></a></h2>
+<p>Create tasks with cancellation rules:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span><span class="p">,</span> <span class="n">spawn_cancellable_task</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;cancellable_queue&quot;</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;your_connection_string&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+    <span class="c1"># Spawn a task that can be cancelled if it takes too long</span>
+    <span class="n">task_id</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">workflow_run_id</span> <span class="o">=</span> <span class="n">spawn_cancellable_task</span><span class="p">(</span>
+        <span class="n">client</span><span class="o">=</span><span class="n">client</span><span class="p">,</span>
+        <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+        <span class="n">task_name</span><span class="o">=</span><span class="s2">&quot;potentially_long_task&quot;</span><span class="p">,</span>
+        <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span><span class="p">},</span>
+        <span class="n">max_delay_seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>  <span class="c1"># Max 1 hour of delay</span>
+        <span class="n">max_duration_seconds</span><span class="o">=</span><span class="mi">7200</span>  <span class="c1"># Max 2 hours total duration</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Later, you can cancel the task if needed</span>
+    <span class="c1"># client.cancel_task(conn, run_id)</span>
+</pre></div>
+</div>
+</section>
+<section id="workflow-tracking-example">
+<h2>Workflow Tracking Example<a class="headerlink" href="#workflow-tracking-example" title="Link to this heading"></a></h2>
+<p>Track complex workflows across multiple tasks:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">uuid</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;workflow_tracking_queue&quot;</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">run_data_pipeline</span><span class="p">():</span>
+    <span class="k">with</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;your_connection_string&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+        <span class="c1"># Create a workflow run to track this pipeline</span>
+        <span class="n">workflow_run_id</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">create_workflow_run</span><span class="p">(</span>
+            <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+            <span class="n">workflow_name</span><span class="o">=</span><span class="s2">&quot;data_pipeline&quot;</span><span class="p">,</span>
+            <span class="n">workflow_version</span><span class="o">=</span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
+            <span class="n">inputs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="s2">&quot;s3://bucket/data&quot;</span><span class="p">,</span> <span class="s2">&quot;target&quot;</span><span class="p">:</span> <span class="s2">&quot;warehouse&quot;</span><span class="p">},</span>
+            <span class="n">created_by</span><span class="o">=</span><span class="s2">&quot;pipeline_system&quot;</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Update workflow status</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">update_workflow_run_status</span><span class="p">(</span>
+            <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+            <span class="n">workflow_run_id</span><span class="o">=</span><span class="n">workflow_run_id</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="s2">&quot;running&quot;</span><span class="p">,</span>
+            <span class="n">started_at</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Spawn the extraction task</span>
+        <span class="n">extract_task_id</span><span class="p">,</span> <span class="n">extract_run_id</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">spawn_task</span><span class="p">(</span>
+            <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+            <span class="n">task_name</span><span class="o">=</span><span class="s2">&quot;extract_data&quot;</span><span class="p">,</span>
+            <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;workflow_run_id&quot;</span><span class="p">:</span> <span class="n">workflow_run_id</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="s2">&quot;s3://bucket/data&quot;</span><span class="p">},</span>
+            <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;workflow_run_id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">workflow_run_id</span><span class="p">)}</span>
+        <span class="p">)</span>
+
+        <span class="c1"># In a real scenario, subsequent tasks would be spawned after previous ones complete</span>
+        <span class="c1"># For this example, we&#39;ll just mark the workflow as completed</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">update_workflow_run_status</span><span class="p">(</span>
+            <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+            <span class="n">workflow_run_id</span><span class="o">=</span><span class="n">workflow_run_id</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="s2">&quot;completed&quot;</span><span class="p">,</span>
+            <span class="n">result</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;output&quot;</span><span class="p">:</span> <span class="s2">&quot;processed_data&quot;</span><span class="p">},</span>
+            <span class="n">completed_at</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(),</span>
+            <span class="n">task_count</span><span class="o">=</span><span class="mi">3</span>  <span class="c1"># Assuming 3 total tasks in the workflow</span>
+        <span class="p">)</span>
+
+<span class="n">run_data_pipeline</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="error_handling.html" class="btn btn-neutral float-left" title="Error Handling" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="modules.html" class="btn btn-neutral float-right" title="API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, rodmena-limited.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

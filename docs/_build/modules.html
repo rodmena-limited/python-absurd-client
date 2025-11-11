@@ -19,8 +19,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="absurd_client package" href="absurd_client.html" />
-    <link rel="prev" title="Welcome to python-absurd-client’s documentation!" href="index.html" /> 
+    <link rel="prev" title="Usage Examples" href="examples.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -44,8 +43,14 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflow_tracking.html">Workflow Tracking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="error_handling.html">Error Handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Usage Examples</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="absurd_client.html">absurd_client package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html">API Reference</a></li>
 </ul>
 </li>
 </ul>
@@ -78,39 +83,52 @@
 <h1>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading"></a></h1>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="absurd_client.html">absurd_client package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient"><code class="docutils literal notranslate"><span class="pre">AbsurdClient</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.await_event"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.await_event()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.cancel_task"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.cancel_task()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.claim_task"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.claim_task()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.cleanup_events"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.cleanup_events()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.cleanup_tasks"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.cleanup_tasks()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.complete_task"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.complete_task()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.create_queue"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.create_queue()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.create_workflow_run"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.create_workflow_run()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.emit_event"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.emit_event()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.extend_claim"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.extend_claim()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.fail_task"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.fail_task()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.get_all_checkpoints"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.get_all_checkpoints()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.get_checkpoint"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.get_checkpoint()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.get_checkpoints_for_run"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.get_checkpoints_for_run()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.get_run_checkpoint"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.get_run_checkpoint()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.get_run_status"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.get_run_status()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.get_task_status"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.get_task_status()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.save_checkpoint_for_run"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.save_checkpoint_for_run()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.schedule_task"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.schedule_task()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.set_checkpoint"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.set_checkpoint()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.set_run_sleeping"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.set_run_sleeping()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.sleep"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.sleep()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.spawn_task"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.spawn_task()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.update_workflow_run_status"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.update_workflow_run_status()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdClient.wait_for_event"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.wait_for_event()</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api.html#absurdclient-class">AbsurdClient Class</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#absurd_client.AbsurdClient"><code class="docutils literal notranslate"><span class="pre">AbsurdClient</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.__init__"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.await_event"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.await_event()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.cancel_task"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.cancel_task()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.claim_task"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.claim_task()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.cleanup_events"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.cleanup_events()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.cleanup_tasks"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.cleanup_tasks()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.complete_task"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.complete_task()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.create_queue"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.create_queue()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.create_workflow_run"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.create_workflow_run()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.emit_event"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.emit_event()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.extend_claim"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.extend_claim()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.fail_task"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.fail_task()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.get_all_checkpoints"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.get_all_checkpoints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.get_checkpoint"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.get_checkpoint()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.get_checkpoints_for_run"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.get_checkpoints_for_run()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.get_run_checkpoint"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.get_run_checkpoint()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.get_run_status"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.get_run_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.get_task_status"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.get_task_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.save_checkpoint_for_run"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.save_checkpoint_for_run()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.schedule_task"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.schedule_task()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.set_checkpoint"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.set_checkpoint()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.set_run_sleeping"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.set_run_sleeping()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.sleep"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.sleep()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.spawn_task"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.spawn_task()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.update_workflow_run_status"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.update_workflow_run_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdClient.wait_for_event"><code class="docutils literal notranslate"><span class="pre">AbsurdClient.wait_for_event()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="absurd_client.html#absurd_client.AbsurdSleepError"><code class="docutils literal notranslate"><span class="pre">AbsurdSleepError</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="absurd_client.html#absurd_client.get_absurd_client"><code class="docutils literal notranslate"><span class="pre">get_absurd_client()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="absurd_client.html#absurd_client.spawn_cancellable_task"><code class="docutils literal notranslate"><span class="pre">spawn_cancellable_task()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="absurd_client.html#absurd_client.spawn_retry_task"><code class="docutils literal notranslate"><span class="pre">spawn_retry_task()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#exception-classes">Exception Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#absurd_client.AbsurdSleepError"><code class="docutils literal notranslate"><span class="pre">AbsurdSleepError</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.html#absurd_client.AbsurdSleepError.__init__"><code class="docutils literal notranslate"><span class="pre">AbsurdSleepError.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#helper-functions">Helper Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#absurd_client.spawn_retry_task"><code class="docutils literal notranslate"><span class="pre">spawn_retry_task()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api.html#absurd_client.spawn_cancellable_task"><code class="docutils literal notranslate"><span class="pre">spawn_cancellable_task()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api.html#absurd_client.get_absurd_client"><code class="docutils literal notranslate"><span class="pre">get_absurd_client()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -121,8 +139,7 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to python-absurd-client’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="absurd_client.html" class="btn btn-neutral float-right" title="absurd_client package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="examples.html" class="btn btn-neutral float-left" title="Usage Examples" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
 
   <hr/>

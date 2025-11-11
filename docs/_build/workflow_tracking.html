@@ -1,0 +1,378 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Tracking &mdash; python-absurd-client 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Error Handling" href="error_handling.html" />
+    <link rel="prev" title="API Reference" href="api.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            python-absurd-client
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Workflow Tracking</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#creating-workflow-runs">Creating Workflow Runs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#parameters-for-workflow-creation">Parameters for Workflow Creation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#updating-workflow-status">Updating Workflow Status</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#parameters-for-status-updates">Parameters for Status Updates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#status-values">Status Values</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#integration-with-tasks">Integration with Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#full-workflow-execution-example">Full Workflow Execution Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#using-with-highway-dsl">Using with Highway DSL</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="error_handling.html">Error Handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Usage Examples</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">python-absurd-client</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Workflow Tracking</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/workflow_tracking.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="workflow-tracking">
+<h1>Workflow Tracking<a class="headerlink" href="#workflow-tracking" title="Link to this heading"></a></h1>
+<p>The Absurd client provides comprehensive workflow tracking capabilities that allow you to monitor and manage complex workflow executions. This feature was introduced in Phase 10 of the development.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>Workflow tracking enables you to:</p>
+<ul class="simple">
+<li><p>Create and monitor workflow runs</p></li>
+<li><p>Track workflow execution status across multiple tasks</p></li>
+<li><p>Store workflow inputs, outputs, and metadata</p></li>
+<li><p>Link multiple tasks to a single workflow run</p></li>
+<li><p>Monitor workflow progress and completion</p></li>
+<li><p>Support for complex workflow patterns with error handling</p></li>
+</ul>
+</section>
+<section id="creating-workflow-runs">
+<h2>Creating Workflow Runs<a class="headerlink" href="#creating-workflow-runs" title="Link to this heading"></a></h2>
+<p>Use the <code class="docutils literal notranslate"><span class="pre">create_workflow_run</span></code> method to create a new workflow tracking record:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">uuid</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;workflow_queue&quot;</span><span class="p">)</span>
+
+<span class="c1"># Create a new workflow run</span>
+<span class="n">workflow_run_id</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">create_workflow_run</span><span class="p">(</span>
+    <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+    <span class="n">workflow_name</span><span class="o">=</span><span class="s2">&quot;data_pipeline&quot;</span><span class="p">,</span>  <span class="c1"># Must match ^[a-z][a-z0-9_]*$ and not contain &#39;__&#39;</span>
+    <span class="n">workflow_version</span><span class="o">=</span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>       <span class="c1"># Must match ^[a-zA-Z0-9._-]+$ and not contain &#39;__&#39;</span>
+    <span class="n">inputs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="s2">&quot;s3://bucket/data&quot;</span><span class="p">,</span> <span class="s2">&quot;target&quot;</span><span class="p">:</span> <span class="s2">&quot;warehouse&quot;</span><span class="p">},</span>
+    <span class="n">created_by</span><span class="o">=</span><span class="s2">&quot;pipeline_system&quot;</span><span class="p">,</span>
+    <span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;environment&quot;</span><span class="p">:</span> <span class="s2">&quot;production&quot;</span><span class="p">,</span> <span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="s2">&quot;high&quot;</span><span class="p">},</span>
+    <span class="n">workflow_hash</span><span class="o">=</span><span class="s2">&quot;sha256_hash_of_definition&quot;</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created workflow run: </span><span class="si">{</span><span class="n">workflow_run_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<section id="parameters-for-workflow-creation">
+<h3>Parameters for Workflow Creation<a class="headerlink" href="#parameters-for-workflow-creation" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">conn</span></code>: Database connection (transaction-aware)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">workflow_name</span></code>: Logical workflow name (must match <code class="docutils literal notranslate"><span class="pre">^[a-z][a-z0-9_]*$</span></code>, no ‘__’)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">workflow_version</span></code>: Workflow version (must match <code class="docutils literal notranslate"><span class="pre">^[a-zA-Z0-9._-]+$</span></code>, no ‘__’)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">inputs</span></code>: Workflow input parameters (optional)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">absurd_run_id</span></code>: Optional root Absurd run_id (optional)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">created_by</span></code>: Optional user/system identifier (optional)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tags</span></code>: Optional key-value tags for filtering (optional)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">workflow_hash</span></code>: Optional SHA-256 hash of workflow definition (optional)</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Both <code class="docutils literal notranslate"><span class="pre">workflow_name</span></code> and <code class="docutils literal notranslate"><span class="pre">workflow_version</span></code> must not contain double underscores (‘__’)
+as this is reserved as a separator for display purposes: <code class="docutils literal notranslate"><span class="pre">{workflow_name}__{version}__{step_name}</span></code></p>
+<p>Workflow names must match: <code class="docutils literal notranslate"><span class="pre">^[a-z][a-z0-9_]*$</span></code> (lowercase, alphanumeric, single underscore)
+Workflow versions must match: <code class="docutils literal notranslate"><span class="pre">^[a-zA-Z0-9._-]+$</span></code> (semver compatible)</p>
+</div>
+</section>
+</section>
+<section id="updating-workflow-status">
+<h2>Updating Workflow Status<a class="headerlink" href="#updating-workflow-status" title="Link to this heading"></a></h2>
+<p>Use the <code class="docutils literal notranslate"><span class="pre">update_workflow_run_status</span></code> method to update the status of a workflow run:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+
+<span class="c1"># Update workflow status to running</span>
+<span class="n">client</span><span class="o">.</span><span class="n">update_workflow_run_status</span><span class="p">(</span>
+    <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+    <span class="n">workflow_run_id</span><span class="o">=</span><span class="n">workflow_run_id</span><span class="p">,</span>
+    <span class="n">status</span><span class="o">=</span><span class="s2">&quot;running&quot;</span><span class="p">,</span>
+    <span class="n">started_at</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+<span class="p">)</span>
+
+<span class="c1"># Update workflow status to completed</span>
+<span class="n">client</span><span class="o">.</span><span class="n">update_workflow_run_status</span><span class="p">(</span>
+    <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+    <span class="n">workflow_run_id</span><span class="o">=</span><span class="n">workflow_run_id</span><span class="p">,</span>
+    <span class="n">status</span><span class="o">=</span><span class="s2">&quot;completed&quot;</span><span class="p">,</span>
+    <span class="n">result</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;output&quot;</span><span class="p">:</span> <span class="s2">&quot;final_result&quot;</span><span class="p">,</span> <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;processed_records&quot;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span> <span class="s2">&quot;duration&quot;</span><span class="p">:</span> <span class="s2">&quot;5min&quot;</span><span class="p">}},</span>
+    <span class="n">completed_at</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(),</span>
+    <span class="n">task_count</span><span class="o">=</span><span class="mi">10</span>  <span class="c1"># Number of tasks in the workflow</span>
+<span class="p">)</span>
+
+<span class="c1"># Update workflow status to failed with detailed error information</span>
+<span class="n">client</span><span class="o">.</span><span class="n">update_workflow_run_status</span><span class="p">(</span>
+    <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+    <span class="n">workflow_run_id</span><span class="o">=</span><span class="n">workflow_run_id</span><span class="p">,</span>
+    <span class="n">status</span><span class="o">=</span><span class="s2">&quot;failed&quot;</span><span class="p">,</span>
+    <span class="n">error</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;ProcessingError&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;Data source unavailable&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;details&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;source_url&quot;</span><span class="p">:</span> <span class="s2">&quot;s3://bucket/data&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;attempted_at&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+            <span class="s2">&quot;retries_attempted&quot;</span><span class="p">:</span> <span class="mi">3</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<section id="parameters-for-status-updates">
+<h3>Parameters for Status Updates<a class="headerlink" href="#parameters-for-status-updates" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">conn</span></code>: Database connection</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">workflow_run_id</span></code>: UUID of workflow_run to update</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">status</span></code>: New status (pending, running, completed, failed, cancelled)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">result</span></code>: Optional final result (optional)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: Optional error details (optional)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">started_at</span></code>: Optional start timestamp (optional)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">completed_at</span></code>: Optional completion timestamp (optional)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">task_count</span></code>: Optional task count (optional)</p></li>
+</ul>
+</section>
+<section id="status-values">
+<h3>Status Values<a class="headerlink" href="#status-values" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">pending</span></code>: Workflow has been created but not yet started</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">running</span></code>: Workflow is currently executing</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">completed</span></code>: Workflow has completed successfully</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">failed</span></code>: Workflow has failed</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cancelled</span></code>: Workflow has been cancelled</p></li>
+</ul>
+</section>
+</section>
+<section id="integration-with-tasks">
+<h2>Integration with Tasks<a class="headerlink" href="#integration-with-tasks" title="Link to this heading"></a></h2>
+<p>Link tasks to workflow runs during task creation:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Spawn a task that&#39;s part of a workflow</span>
+<span class="n">task_id</span><span class="p">,</span> <span class="n">run_id</span><span class="p">,</span> <span class="n">actual_workflow_run_id</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">spawn_task</span><span class="p">(</span>
+    <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+    <span class="n">task_name</span><span class="o">=</span><span class="s2">&quot;extract_data&quot;</span><span class="p">,</span>
+    <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;workflow_run_id&quot;</span><span class="p">:</span> <span class="n">workflow_run_id</span><span class="p">},</span>  <span class="c1"># Link to workflow in parameters</span>
+    <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;workflow_run_id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">workflow_run_id</span><span class="p">)}</span>  <span class="c1"># Also store in headers</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>This creates a connection between the Absurd task and the workflow run, allowing you to track the relationship between individual tasks and the overall workflow.</p>
+</section>
+<section id="full-workflow-execution-example">
+<h2>Full Workflow Execution Example<a class="headerlink" href="#full-workflow-execution-example" title="Link to this heading"></a></h2>
+<p>Here’s a complete example of a workflow using tracking:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">absurd_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsurdClient</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">execute_data_pipeline</span><span class="p">():</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">AbsurdClient</span><span class="p">(</span><span class="n">queue_name</span><span class="o">=</span><span class="s2">&quot;pipeline_queue&quot;</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;your_connection_string&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+        <span class="c1"># Create workflow run</span>
+        <span class="n">workflow_run_id</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">create_workflow_run</span><span class="p">(</span>
+            <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+            <span class="n">workflow_name</span><span class="o">=</span><span class="s2">&quot;data_pipeline&quot;</span><span class="p">,</span>
+            <span class="n">workflow_version</span><span class="o">=</span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
+            <span class="n">inputs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="s2">&quot;s3://bucket/data&quot;</span><span class="p">,</span> <span class="s2">&quot;target&quot;</span><span class="p">:</span> <span class="s2">&quot;warehouse&quot;</span><span class="p">},</span>
+            <span class="n">created_by</span><span class="o">=</span><span class="s2">&quot;etl_system&quot;</span><span class="p">,</span>
+            <span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;environment&quot;</span><span class="p">:</span> <span class="s2">&quot;production&quot;</span><span class="p">,</span> <span class="s2">&quot;team&quot;</span><span class="p">:</span> <span class="s2">&quot;data-eng&quot;</span><span class="p">}</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Update status to running</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">update_workflow_run_status</span><span class="p">(</span>
+            <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+            <span class="n">workflow_run_id</span><span class="o">=</span><span class="n">workflow_run_id</span><span class="p">,</span>
+            <span class="n">status</span><span class="o">=</span><span class="s2">&quot;running&quot;</span><span class="p">,</span>
+            <span class="n">started_at</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Spawn extraction task</span>
+            <span class="n">extract_task_id</span><span class="p">,</span> <span class="n">extract_run_id</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">spawn_task</span><span class="p">(</span>
+                <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+                <span class="n">task_name</span><span class="o">=</span><span class="s2">&quot;extract_data&quot;</span><span class="p">,</span>
+                <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;workflow_run_id&quot;</span><span class="p">:</span> <span class="n">workflow_run_id</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="s2">&quot;s3://bucket/data&quot;</span><span class="p">},</span>
+                <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;workflow_run_id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">workflow_run_id</span><span class="p">)}</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Process the extraction task</span>
+            <span class="c1"># ... task processing logic ...</span>
+
+            <span class="c1"># Spawn transformation task after extraction completes</span>
+            <span class="n">transform_task_id</span><span class="p">,</span> <span class="n">transform_run_id</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">spawn_task</span><span class="p">(</span>
+                <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+                <span class="n">task_name</span><span class="o">=</span><span class="s2">&quot;transform_data&quot;</span><span class="p">,</span>
+                <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;workflow_run_id&quot;</span><span class="p">:</span> <span class="n">workflow_run_id</span><span class="p">,</span> <span class="s2">&quot;input_format&quot;</span><span class="p">:</span> <span class="s2">&quot;raw&quot;</span><span class="p">},</span>
+                <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;workflow_run_id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">workflow_run_id</span><span class="p">)}</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Process the transformation task</span>
+            <span class="c1"># ... task processing logic ...</span>
+
+            <span class="c1"># Update workflow status to completed</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">update_workflow_run_status</span><span class="p">(</span>
+                <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+                <span class="n">workflow_run_id</span><span class="o">=</span><span class="n">workflow_run_id</span><span class="p">,</span>
+                <span class="n">status</span><span class="o">=</span><span class="s2">&quot;completed&quot;</span><span class="p">,</span>
+                <span class="n">result</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;output&quot;</span><span class="p">:</span> <span class="s2">&quot;warehouse&quot;</span><span class="p">,</span> <span class="s2">&quot;records_processed&quot;</span><span class="p">:</span> <span class="mi">10000</span><span class="p">},</span>
+                <span class="n">completed_at</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(),</span>
+                <span class="n">task_count</span><span class="o">=</span><span class="mi">2</span>
+            <span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># Update workflow status to failed</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">update_workflow_run_status</span><span class="p">(</span>
+                <span class="n">conn</span><span class="o">=</span><span class="n">conn</span><span class="p">,</span>
+                <span class="n">workflow_run_id</span><span class="o">=</span><span class="n">workflow_run_id</span><span class="p">,</span>
+                <span class="n">status</span><span class="o">=</span><span class="s2">&quot;failed&quot;</span><span class="p">,</span>
+                <span class="n">error</span><span class="o">=</span><span class="p">{</span>
+                    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+                    <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+                    <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+            <span class="k">raise</span>
+</pre></div>
+</div>
+</section>
+<section id="using-with-highway-dsl">
+<h2>Using with Highway DSL<a class="headerlink" href="#using-with-highway-dsl" title="Link to this heading"></a></h2>
+<p>The workflow tracking features integrate well with the <a class="reference external" href="https://github.com/rodmena-limited/highway_dsl">highway-dsl</a> package, which provides a Python-based domain-specific language for defining complex workflows:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">highway_dsl</span><span class="w"> </span><span class="kn">import</span> <span class="n">WorkflowBuilder</span><span class="p">,</span> <span class="n">RetryPolicy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">timedelta</span>
+
+<span class="c1"># Create a complex ETL workflow with Highway DSL</span>
+<span class="n">workflow</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">WorkflowBuilder</span><span class="p">(</span><span class="s2">&quot;data_pipeline&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">set_schedule</span><span class="p">(</span><span class="s2">&quot;0 2 * * *&quot;</span><span class="p">)</span>  <span class="c1"># Daily at 2 AM</span>
+    <span class="o">.</span><span class="n">set_start_date</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())</span>
+    <span class="o">.</span><span class="n">add_tags</span><span class="p">(</span><span class="s2">&quot;etl&quot;</span><span class="p">,</span> <span class="s2">&quot;production&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">set_max_active_runs</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">set_default_retry_policy</span><span class="p">(</span><span class="n">RetryPolicy</span><span class="p">(</span>
+        <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">delay</span><span class="o">=</span><span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">30</span><span class="p">),</span>
+        <span class="n">backoff_factor</span><span class="o">=</span><span class="mf">2.0</span>
+    <span class="p">))</span>
+    <span class="o">.</span><span class="n">task</span><span class="p">(</span><span class="s2">&quot;extract&quot;</span><span class="p">,</span> <span class="s2">&quot;etl.extract_data&quot;</span><span class="p">,</span> <span class="n">result_key</span><span class="o">=</span><span class="s2">&quot;raw_data&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">task</span><span class="p">(</span><span class="s2">&quot;transform&quot;</span><span class="p">,</span> <span class="s2">&quot;etl.transform_data&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;{{raw_data}}&quot;</span><span class="p">],</span> <span class="n">result_key</span><span class="o">=</span><span class="s2">&quot;transformed_data&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">parallel</span><span class="p">(</span><span class="s2">&quot;process_branches&quot;</span><span class="p">,</span> <span class="p">{</span>
+        <span class="s2">&quot;branch_a&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">w</span><span class="p">:</span> <span class="n">w</span><span class="o">.</span><span class="n">task</span><span class="p">(</span><span class="s2">&quot;process_a&quot;</span><span class="p">,</span> <span class="s2">&quot;etl.process_part_a&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;{{transformed_data}}&quot;</span><span class="p">]),</span>
+        <span class="s2">&quot;branch_b&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">w</span><span class="p">:</span> <span class="n">w</span><span class="o">.</span><span class="n">task</span><span class="p">(</span><span class="s2">&quot;process_b&quot;</span><span class="p">,</span> <span class="s2">&quot;etl.process_part_b&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;{{transformed_data}}&quot;</span><span class="p">])</span>
+    <span class="p">})</span>
+    <span class="o">.</span><span class="n">task</span><span class="p">(</span><span class="s2">&quot;load&quot;</span><span class="p">,</span> <span class="s2">&quot;etl.load_data&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;{{transformed_data}}&quot;</span><span class="p">])</span>
+    <span class="o">.</span><span class="n">build</span><span class="p">()</span>
+<span class="p">)</span>
+
+<span class="c1"># Export to YAML for use with Absurd</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">workflow</span><span class="o">.</span><span class="n">to_yaml</span><span class="p">())</span>
+
+<span class="c1"># This workflow can be executed using the Absurd client</span>
+<span class="c1"># with proper workflow run tracking</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="api.html" class="btn btn-neutral float-left" title="API Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="error_handling.html" class="btn btn-neutral float-right" title="Error Handling" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, rodmena-limited.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
