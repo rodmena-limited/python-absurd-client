@@ -116,6 +116,54 @@ When using ``wait_for_event``, you must specify a timeout to prevent hung workfl
         # Expected when waiting for events - orchestrator handles this
         pass
 
+Timeout Handling for Events
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The client has sophisticated timeout detection for events:
+
+.. code-block:: python
+
+    from absurd_client import AbsurdClient, AbsurdSleepError
+
+    client = AbsurdClient(queue_name="timeout_queue")
+
+    try:
+        # Wait for an event with timeout
+        payload = client.wait_for_event(
+            conn=conn,
+            run_id=run_id,
+            event_name="data_ready",
+            timeout_seconds=1800,  # 30 minutes
+            task_id=task_id,
+            step_name="waiting_step"
+        )
+    except TimeoutError:
+        print("Event timed out")
+    except AbsurdSleepError:
+        # When this exception is caught, the orchestrator should call:
+        client.set_run_sleeping(conn, run_id, "data_ready")
+
+Task Cancellation Errors
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+When attempting to cancel tasks, consider their state:
+
+.. code-block:: python
+
+    from absurd_client import AbsurdClient
+
+    client = AbsurdClient(queue_name="cancellation_queue")
+
+    try:
+        # Attempt to cancel a task
+        cancelled = client.cancel_task(conn, run_id)
+        if cancelled:
+            print("Task was successfully cancelled")
+        else:
+            print("Task could not be cancelled (may already be running/completed)")
+    except Exception as e:
+        print(f"Error cancelling task: {e}")
+
 Retry and Failure Handling
 --------------------------
 

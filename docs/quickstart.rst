@@ -99,6 +99,74 @@ For production applications, use connection pooling for better resource manageme
             params={"data": "value"}
         )
 
+Event-Driven Workflows
+----------------------
+
+Use events for cross-workflow coordination:
+
+.. code-block:: python
+
+    from absurd_client import AbsurdClient, AbsurdSleepError
+
+    client = AbsurdClient(queue_name="event_queue")
+
+    # Emit an event to signal completion
+    client.emit_event(
+        conn=conn,
+        event_name="data_ready",
+        payload={"processed_data": "result", "timestamp": "2025-01-01T00:00:00Z"}
+    )
+
+    # Wait for an event (in a task) - this requires error handling
+    try:
+        payload = client.wait_for_event(
+            conn=conn,
+            run_id=run_id,
+            event_name="data_ready",
+            timeout_seconds=3600,  # 1 hour - required parameter
+            task_id=task_id,
+            step_name="waiting_step"
+        )
+        print(f"Received event payload: {payload}")
+    except TimeoutError:
+        print("Event not received within timeout")
+    except AbsurdSleepError:
+        # This exception is expected when using wait_for_event
+        # The orchestrator will handle it and put the task to sleep
+        pass
+
+Scheduling and Cleanup
+----------------------
+
+Schedule tasks for future execution and clean up old data:
+
+.. code-block:: python
+
+    from absurd_client import AbsurdClient
+    from datetime import datetime, timedelta
+
+    client = AbsurdClient(queue_name="scheduled_queue")
+
+    # Schedule a task to run in 10 minutes
+    with psycopg.connect("your_connection_string") as conn:
+        task_id, run_id, workflow_run_id = client.spawn_task(
+            conn=conn,
+            task_name="delayed_task",
+            params={"message": "This will run later"}
+        )
+
+        # Schedule the task to run 10 minutes from now
+        future_time = datetime.now() + timedelta(minutes=10)
+        client.schedule_task(conn, run_id, future_time)
+
+        # Clean up old completed tasks (older than 24 hours, limit 1000)
+        cleaned_count = client.cleanup_tasks(conn, ttl_seconds=86400, limit=1000)
+        print(f"Cleaned up {cleaned_count} old tasks")
+
+        # Clean up old events (older than 7 days, limit 500)
+        cleaned_count = client.cleanup_events(conn, ttl_seconds=604800, limit=500)
+        print(f"Cleaned up {cleaned_count} old events")
+
 Advanced Task Spawning
 ----------------------
 

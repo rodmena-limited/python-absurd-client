@@ -337,3 +337,209 @@ Track complex workflows across multiple tasks:
             )
 
     run_data_pipeline()
+
+Event Coordination Example
+--------------------------
+
+Coordinate between tasks using events:
+
+.. code-block:: python
+
+    from absurd_client import AbsurdClient, AbsurdSleepError
+    from datetime import datetime, timedelta
+
+    client = AbsurdClient(queue_name="event_coordination_queue")
+
+    def producer_task(conn, run_id, task_id):
+        """Task that processes data and emits an event"""
+        # Process the data
+        result = {"processed_data": "some_value", "timestamp": datetime.now().isoformat()}
+
+        # Emit an event that other tasks can wait for
+        client.emit_event(
+            conn=conn,
+            event_name="data_processed",
+            payload=result
+        )
+
+        return {"status": "event_emitted", "data": result}
+
+    def consumer_task(conn, run_id, task_id):
+        """Task that waits for an event before proceeding"""
+        try:
+            # Wait for the data_processed event
+            payload = client.wait_for_event(
+                conn=conn,
+                run_id=run_id,
+                event_name="data_processed",
+                timeout_seconds=3600,  # 1 hour timeout
+                task_id=task_id,
+                step_name="waiting_for_data"
+            )
+            return {"status": "received", "payload": payload}
+        except AbsurdSleepError:
+            # This is expected - orchestrator handles this by marking task as sleeping
+            raise
+
+    def orchestrator_handle_event_task(conn, run_id, task_id):
+        """Orchestrator function that handles event processing"""
+        try:
+            result = consumer_task(conn, run_id, task_id)
+            client.complete_task(conn, run_id, result)
+        except AbsurdSleepError as e:
+            # Mark the run as sleeping until the event occurs
+            client.set_run_sleeping(conn, e.run_id, e.event_name)
+            # Return without completing - task will resume when event occurs
+
+    # Example usage
+    with psycopg.connect("your_connection_string") as conn:
+        # Producer task runs first, emits event
+        prod_task_id, prod_run_id, _ = client.spawn_task(
+            conn=conn,
+            task_name="produce_data",
+            params={}
+        )
+
+        # Consumer task runs later, waits for event
+        cons_task_id, cons_run_id, _ = client.spawn_task(
+            conn=conn,
+            task_name="consume_data",
+            params={}
+        )
+
+Scheduling and Cleanup Example
+------------------------------
+
+Schedule tasks and clean up old data:
+
+.. code-block:: python
+
+    from absurd_client import AbsurdClient
+    from datetime import datetime, timedelta
+
+    client = AbsurdClient(queue_name="scheduled_queue")
+
+    # Spawn a task
+    with psycopg.connect("your_connection_string") as conn:
+        task_id, run_id, workflow_run_id = client.spawn_task(
+            conn=conn,
+            task_name="scheduled_task",
+            params={"message": "Run later"}
+        )
+
+        # Schedule the task to run in 30 minutes
+        future_time = datetime.now() + timedelta(minutes=30)
+        client.schedule_task(conn, run_id, future_time)
+
+        # Cancel a task if needed (only works if task is pending or sleeping)
+        # client.cancel_task(conn, run_id)
+
+        # Clean up old completed tasks (older than 24 hours)
+        old_task_count = client.cleanup_tasks(conn, ttl_seconds=86400, limit=1000)
+        print(f"Cleaned up {old_task_count} old completed tasks")
+
+        # Clean up old events (older than 7 days)
+        old_event_count = client.cleanup_events(conn, ttl_seconds=604800, limit=1000)
+        print(f"Cleaned up {old_event_count} old events")
+
+Status and Monitoring Example
+-----------------------------
+
+Monitor task and run statuses:
+
+.. code-block:: python
+
+    from absurd_client import AbsurdClient
+
+    client = AbsurdClient(queue_name="monitoring_queue")
+
+    with psycopg.connect("your_connection_string") as conn:
+        # Spawn a task
+        task_id, run_id, workflow_run_id = client.spawn_task(
+            conn=conn,
+            task_name="monitoring_task",
+            params={"data": "value"}
+        )
+
+        # Get detailed task status
+        task_status = client.get_task_status(conn, task_id)
+        if task_status:
+            print(f"Task state: {task_status['state']}")
+            print(f"Task attempts: {task_status['attempts']}")
+            print(f"Current params: {task_status['params']}")
+
+        # Get detailed run status
+        run_status = client.get_run_status(conn, run_id)
+        if run_status:
+            print(f"Run state: {run_status['state']}")
+            print(f"Claimed by: {run_status['claimed_by']}")
+            print(f"Started at: {run_status['started_at']}")
+
+        # Get all checkpoints for a run
+        checkpoints = client.get_checkpoints_for_run(conn, run_id)
+        print(f"Found {len(checkpoints)} checkpoints: {list(checkpoints.keys())}")
+
+Checkpoint Management for Complex Tasks
+---------------------------------------
+
+Advanced checkpoint management for complex long-running tasks:
+
+.. code-block:: python
+
+    from absurd_client import AbsurdClient
+    import time
+
+    client = AbsurdClient(queue_name="complex_task_queue")
+
+    def complex_task_with_checkpoints(conn, run_id, task_id):
+        """A complex task with multiple steps and checkpoints"""
+        # Check if we have a checkpoint for this run to resume from
+        resume_checkpoint = client.get_run_checkpoint(conn, run_id, "current_step")
+        start_step = resume_checkpoint if resume_checkpoint else 1
+
+        total_steps = 5
+
+        for step in range(start_step, total_steps + 1):
+            # Simulate processing for this step
+            print(f"Processing step {step}/{total_steps}")
+            time.sleep(1)  # Simulate work
+
+            # Save progress checkpoint for this step
+            client.save_checkpoint_for_run(
+                conn=conn,
+                run_id=run_id,
+                step_name="current_step",
+                data=step
+            )
+
+            # Save step-specific data
+            client.save_checkpoint_for_run(
+                conn=conn,
+                run_id=run_id,
+                step_name=f"step_{step}_data",
+                data={"step_number": step, "processed": f"step_{step}_data", "completed_at": datetime.now().isoformat()}
+            )
+
+            # Extend claim if needed for long operations
+            client.extend_claim(conn, run_id, extend_by_seconds=60)
+
+        return {"status": "completed", "total_steps": total_steps}
+
+    # Example usage
+    with psycopg.connect("your_connection_string") as conn:
+        # Spawn the complex task
+        task_id, run_id, workflow_run_id = client.spawn_task(
+            conn=conn,
+            task_name="complex_task",
+            params={"steps": 5}
+        )
+
+        # Process the task (this may be done in a worker)
+        claimed_tasks = client.claim_task(conn)
+        for task_data in claimed_tasks:
+            run_id, task_id, *_ = task_data
+            try:
+                result = complex_task_with_checkpoints(conn, run_id, task_id)
+                client.complete_task(conn, run_id, result)
+            except Exception as e:
+                client.fail_task(conn, run_id, str(e))

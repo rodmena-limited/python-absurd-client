@@ -221,6 +221,44 @@ Here's a complete example of a workflow using tracking:
                 )
                 raise
 
+Run-Level Checkpoint Management
+-------------------------------
+
+In addition to task-level checkpoints, the client provides methods to manage checkpoints at the workflow run level:
+
+.. code-block:: python
+
+    from absurd_client import AbsurdClient
+
+    client = AbsurdClient(queue_name="checkpoint_queue")
+
+    with psycopg.connect("your_connection_string") as conn:
+        # Get all checkpoints associated with a specific run
+        checkpoints = client.get_checkpoints_for_run(conn, run_id)
+        print(f"Found {len(checkpoints)} checkpoints: {list(checkpoints.keys())}")
+
+        # Get a specific checkpoint for a run
+        progress_checkpoint = client.get_run_checkpoint(conn, run_id, "progress")
+        if progress_checkpoint:
+            print(f"Current progress: {progress_checkpoint}")
+
+        # Save a checkpoint for a specific step in the run
+        client.save_checkpoint_for_run(
+            conn=conn,
+            run_id=run_id,
+            step_name="current_step",
+            data={"step": 3, "total": 10, "status": "in_progress"}
+        )
+
+        # If you know the associated task_id, you can pass it explicitly
+        client.save_checkpoint_for_run(
+            conn=conn,
+            run_id=run_id,
+            step_name="detailed_state",
+            data={"state": "processing", "details": {"item": 1, "total": 100}},
+            task_id=task_id  # Specify the task_id if known
+        )
+
 Using with Highway DSL
 ----------------------
 

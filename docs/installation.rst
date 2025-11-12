@@ -6,7 +6,7 @@ Prerequisites
 
 Before installing the Python Absurd client, you'll need:
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - PostgreSQL with the Absurd extension installed
 - Psycopg3 library for PostgreSQL connectivity
 
@@ -52,6 +52,7 @@ Optionally, for development and testing:
 - ``pytest`` - Testing framework
 - ``sphinx`` - Documentation generation
 - ``sphinx-rtd-theme`` - Read the Docs theme for documentation
+- ``psycopg_pool`` - Connection pooling for production applications
 
 PostgreSQL Setup
 ----------------
