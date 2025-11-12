@@ -5,6 +5,9 @@ which is built on PostgreSQL. It allows you to spawn tasks, claim and process th
 handle events, manage checkpoints, and track workflow runs.
 """
 
+__AUTHOR__ = "Farshid Ahouri"
+__DESCRIPTION__ = "Python client for Absurd SQL-based durable execution workflow system"
+
 import json
 import logging
 import os
@@ -32,10 +35,12 @@ class AbsurdSleepError(Exception):
         message: str,
         run_id: uuid.UUID | None = None,
         event_name: str | None = None,
+        wake_at: datetime | None = None,
     ) -> None:
         super().__init__(message)
         self.run_id = run_id
         self.event_name = event_name
+        self.wake_at = wake_at
 
 
 class AbsurdClient:
@@ -809,10 +814,11 @@ class AbsurdClient:
                 msg,
             )
 
-        logger.debug(f"Waiting for event '{event_name}' for run {run_id}")
+        logger.info(f"[wait_for_event] START: Waiting for event '{event_name}' for run {run_id}")
 
         # Check if event already exists in events table
         # SECURITY FIX: Use sql.Identifier to prevent SQL injection
+        logger.info(f"[wait_for_event] Step 1: Checking events table for '{event_name}'")
         with conn.cursor() as cur:
             cur.execute(
                 sql.SQL(
@@ -826,10 +832,28 @@ class AbsurdClient:
             result = cur.fetchone()
 
         if result:
-            return result[0]
+            logger.info(
+                f"[wait_for_event] FAST PATH: Found event '{event_name}' in events table, payload={result[0]}"
+            )
+
+            # Check if payload indicates timeout
+            payload = result[0]
+            if isinstance(payload, dict) and payload.get("timeout") is True:
+                logger.warning(
+                    "[wait_for_event] FAST PATH TIMEOUT: Event payload indicates timeout, raising TimeoutError"
+                )
+                raise TimeoutError(
+                    f"Timeout waiting for event '{event_name}' after {timeout_seconds} seconds"
+                )
+
+            return payload
+        logger.info(
+            f"[wait_for_event] Event '{event_name}' not in events table, checking run payload"
+        )
 
         # Check if this run has been woken with event payload
         # SECURITY FIX: Use sql.Identifier to prevent SQL injection
+        logger.debug(f"[wait_for_event] Checking run's event_payload for run_id={run_id}")
         with conn.cursor() as cur:
             cur.execute(
                 sql.SQL(
@@ -844,15 +868,38 @@ class AbsurdClient:
 
         if run_result:
             event_payload, _run_state, wake_event = run_result
+            logger.info(
+                f"[FAST PATH] Run found: event_payload={event_payload}, wake_event={wake_event}, run_state={_run_state}"
+            )
+            logger.info(
+                f"[FAST PATH] Checking conditions: event_payload type={type(event_payload)}, wake_event matches={wake_event == event_name}"
+            )
+
+            # ALWAYS check for timeout payload first, regardless of wake_event value
+            # Absurd sets event_payload={'timeout': True} on timeout, even if wake_event doesn't match
+            if isinstance(event_payload, dict) and event_payload.get("timeout") is True:
+                logger.warning(
+                    "[FAST PATH] TIMEOUT: Detected timeout payload, raising TimeoutError"
+                )
+                raise TimeoutError(
+                    f"Timeout waiting for event '{event_name}' after {timeout_seconds} seconds"
+                )
+            logger.info("[FAST PATH] No timeout payload detected, continuing checks")
 
             # Only consume event_payload if it matches the event we're waiting for
             if event_payload and wake_event == event_name:
-                logger.debug(f"Run {run_id} woken with event '{event_name}'")
+                logger.info(
+                    f"[FAST PATH] MATCH: wake_event matches event_name, returning event_payload={event_payload}"
+                )
                 return event_payload
             if event_payload and wake_event != event_name:
                 # Ignore stale payload from a different event
-                logger.debug(
-                    f"Ignoring stale payload for '{wake_event}' while waiting for '{event_name}'",
+                logger.info(
+                    f"[FAST PATH] STALE: Ignoring stale payload for '{wake_event}' while waiting for '{event_name}'"
+                )
+            else:
+                logger.info(
+                    "[FAST PATH] NO PAYLOAD: event_payload is None or empty, continuing to timeout detection"
                 )
 
         # Event doesn't exist yet - register wait and enter SLEEPING state
@@ -861,6 +908,81 @@ class AbsurdClient:
             raise ValueError(
                 msg,
             )
+
+        # TIMEOUT DETECTION: Check if we're resuming after a timeout
+        logger.info(
+            f"[TIMEOUT CHECK] Starting timeout detection for run={run_id}, step={step_name}"
+        )
+
+        # Check if a checkpoint exists for this wait step
+        with conn.cursor() as cur:
+            cur.execute(
+                sql.SQL(
+                    "SELECT 1 FROM {schema}.{table} "
+                    "WHERE task_id = %(task_id)s AND checkpoint_name = %(step_name)s LIMIT 1"
+                ).format(
+                    schema=sql.Identifier("absurd"),
+                    table=sql.Identifier(f"c_{self.queue_name}"),
+                ),
+                {"task_id": task_id, "step_name": step_name},
+            )
+            checkpoint_exists = cur.fetchone() is not None
+
+        logger.info(f"[TIMEOUT CHECK] Checkpoint exists: {checkpoint_exists}")
+
+        # Check if wait registration exists
+        with conn.cursor() as cur:
+            cur.execute(
+                sql.SQL(
+                    "SELECT 1 FROM {schema}.{table} "
+                    "WHERE run_id = %(run_id)s AND step_name = %(step_name)s LIMIT 1"
+                ).format(
+                    schema=sql.Identifier("absurd"),
+                    table=sql.Identifier(f"w_{self.queue_name}"),
+                ),
+                {"run_id": run_id, "step_name": step_name},
+            )
+            wait_exists = cur.fetchone() is not None
+
+        logger.info(f"[TIMEOUT CHECK] Wait registration exists: {wait_exists}")
+
+        if checkpoint_exists and not wait_exists:
+            # Checkpoint exists but wait registration doesn't
+            # → Absurd deleted it due to timeout (wait_cleanup CTE) → raise TimeoutError
+            logger.warning(
+                f"[TIMEOUT CHECK] TIMEOUT DETECTED! Raising TimeoutError for event '{event_name}' (run={run_id}, step={step_name})"
+            )
+            raise TimeoutError(
+                f"Timeout waiting for event '{event_name}' after {timeout_seconds} seconds"
+            )
+
+        logger.info("[TIMEOUT CHECK] No timeout detected, proceeding to register wait")
+
+        # First time waiting: Create checkpoint to mark that we've started waiting
+        # This allows timeout detection on resume (checkpoint exists + no wait = timeout)
+        if not checkpoint_exists:
+            logger.info(f"Creating checkpoint for wait step: {step_name}")
+            with conn.cursor() as cur:
+                cur.execute(
+                    sql.SQL(
+                        "INSERT INTO {schema}.{table} (task_id, checkpoint_name, state, status, owner_run_id, updated_at) "
+                        "VALUES (%(task_id)s, %(checkpoint_name)s, %(state)s, 'committed', %(run_id)s, %(updated_at)s) "
+                        "ON CONFLICT (task_id, checkpoint_name) DO NOTHING"
+                    ).format(
+                        schema=sql.Identifier("absurd"),
+                        table=sql.Identifier(f"c_{self.queue_name}"),
+                    ),
+                    {
+                        "task_id": task_id,
+                        "checkpoint_name": step_name,
+                        "state": json.dumps(
+                            {"event_name": event_name, "timeout_seconds": timeout_seconds}
+                        ),
+                        "run_id": run_id,
+                        "updated_at": datetime.now(timezone.utc),
+                    },
+                )
+            logger.info(f"Checkpoint created for wait step: {step_name}")
 
         timeout_at = datetime.now(timezone.utc) + timedelta(seconds=timeout_seconds)
 
@@ -900,17 +1022,28 @@ class AbsurdClient:
         """Mark a run as SLEEPING waiting for an event.
 
         Called by orchestrator after catching AbsurdSleepException.
+
+        CRITICAL: Must update available_at to timeout_at from wait registration
+        to prevent sleeping runs from being immediately re-claimed!
         """
         # SECURITY FIX: Use sql.Identifier to prevent SQL injection
+        # Get timeout_at from wait registration and use it to set available_at
         with conn.cursor() as cur:
             cur.execute(
                 sql.SQL(
-                    "UPDATE {schema}.{table} "
-                    "SET state = 'sleeping', wake_event = %(event_name)s "
-                    "WHERE run_id = %(run_id)s"
+                    "UPDATE {schema}.{runs_table} r "
+                    "SET state = 'sleeping', "
+                    "    wake_event = %(event_name)s, "
+                    "    available_at = COALESCE("
+                    "        (SELECT w.timeout_at FROM {schema}.{wait_table} w "
+                    "         WHERE w.run_id = %(run_id)s LIMIT 1), "
+                    "        NOW() + INTERVAL '24 hours'"  # Fallback for non-timeout waits
+                    "    ) "
+                    "WHERE r.run_id = %(run_id)s"
                 ).format(
                     schema=sql.Identifier("absurd"),
-                    table=sql.Identifier(f"r_{self.queue_name}"),
+                    runs_table=sql.Identifier(f"r_{self.queue_name}"),
+                    wait_table=sql.Identifier(f"w_{self.queue_name}"),
                 ),
                 {"event_name": event_name, "run_id": run_id},
             )

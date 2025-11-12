@@ -43,4 +43,4 @@ if __name__ == "__main__":
     test_client_creation()
     test_client_default_queue()
     test_invalid_queue_name()
-    print("\nAll tests passed! ✓")
+    print("\nAll tests passed!")
