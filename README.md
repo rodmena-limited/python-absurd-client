@@ -1,3 +1,6 @@
+# WARNING:
+DEPRECATED: This package is deprecated and is no longer maintained. Please consider using alternative solutions for your workflow management needs.
+
 # Absurd Python Client
 
 A Python client for the [Absurd SQL-based durable execution workflow system](https://github.com/earendil-works/absurd). This library provides a Python interface to interact with Absurd's PostgreSQL-based task queue and workflow engine.
@@ -87,3 +90,10 @@ The client supports the following environment variables:
 ## Support
 
 For support, please open an issue in the [GitHub repository](https://github.com/rodmena-limited/python-absurd-client).
+
+
+## DISCLAIMER
+
+This package has no affiliation with the original Absurd project or its maintainers. It is an independent implementation designed to work with the Absurd system. Use at your own risk.
+Also this package is not approved or endorsed by the original Absurd project or its maintainers.
+I built this as part of HIGHWAY workflow engine, but decided not to use Absurd in the end due to various limitations and issues I encountered in its design and implementation.
