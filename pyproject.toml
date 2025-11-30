@@ -1,21 +1,22 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=77.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "absurd"
-version = "0.0.9"
+version = "0.1.0"
 authors = [
     {name = "Farshid Ashouri", email = "farshid.ashouri@example.com"},
 ]
 description = "A Python client for the Absurd SQL-based durable execution workflow system"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
+keywords = ["workflow", "durable-execution", "postgresql", "database"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",  # Updated to match your LICENSE file
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -35,3 +36,7 @@ dev = [
     "black",
     "flake8",
 ]
+
+[tool.setuptools.packages.find]
+include = ["absurd_client*"]
+exclude = ["docs*", "tests*"]
